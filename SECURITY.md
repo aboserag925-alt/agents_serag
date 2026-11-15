@@ -6,6 +6,7 @@
 - No embedded default token is accepted.
 - The `dev-bypass` token is rejected.
 - Token comparison uses constant-time `hmac.compare_digest`.
+- Token verification resolves `HUB_AUTH_TOKEN` at call time when it was loaded from `.env` after module import, avoiding a stale empty module-level value.
 - The in-memory rate limiter is protected by a thread lock.
 - CORS no longer defaults to wildcard origins; explicit trusted origins are required.
 - Agent commands are tokenized with `shlex.split` and launched without a shell.
