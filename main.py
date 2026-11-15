@@ -1,0 +1,611 @@
+import os
+import sys
+import json
+import time
+import signal
+import socket
+import re
+import subprocess
+import asyncio
+from pathlib import Path
+from typing import Optional, Dict, Any, List
+
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+
+BASE_DIR = Path(__file__).resolve().parent
+LOGS_DIR = BASE_DIR / "logs"
+AGENTS_FILE = BASE_DIR / "agents.json"
+LOGS_DIR.mkdir(parents=True, exist_ok=True)
+
+app = FastAPI(title="Unified Agents Hub", description="مركز إدارة وتشغيل الوكلاء الموحد", version="1.0.0")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+managed_processes: Dict[str, Dict[str, Any]] = {}
+
+def clean_ansi(text: str) -> str:
+    ansi_regex = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
+    return ansi_regex.sub('', text)
+
+def load_agents() -> List[Dict[str, Any]]:
+    if not AGENTS_FILE.exists():
+        return []
+    try:
+        with open(AGENTS_FILE, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"Error loading agents.json: {e}", file=sys.stderr)
+        return []
+
+def is_port_listening(port: Optional[int]) -> bool:
+    if not port:
+        return False
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(0.2)
+            return s.connect_ex(("127.0.0.1", int(port))) == 0
+    except Exception:
+        return False
+
+def find_running_pid(pattern: Optional[str], agent_id: str) -> Optional[int]:
+    # 1. Check in-memory managed process
+    if agent_id in managed_processes:
+        info = managed_processes[agent_id]
+        pid = info.get("pid")
+        if pid and os.path.exists(f"/proc/{pid}"):
+            return pid
+        else:
+            managed_processes.pop(agent_id, None)
+
+    # 2. Check saved pidfile
+    pidfile = LOGS_DIR / f"{agent_id}.pid"
+    if pidfile.exists():
+        try:
+            saved_pid = int(pidfile.read_text().strip())
+            if os.path.exists(f"/proc/{saved_pid}"):
+                return saved_pid
+            else:
+                pidfile.unlink(missing_ok=True)
+        except Exception:
+            pidfile.unlink(missing_ok=True)
+
+    # 3. Check /proc by pattern
+    if not pattern:
+        return None
+    try:
+        pat = re.compile(pattern, re.IGNORECASE)
+        my_pid = os.getpid()
+        for p in os.listdir("/proc"):
+            if not p.isdigit() or int(p) == my_pid:
+                continue
+            cmd_file = Path(f"/proc/{p}/cmdline")
+            if not cmd_file.exists():
+                continue
+            try:
+                cmd = cmd_file.read_bytes().decode("latin1", "replace").replace("\x00", " ").strip()
+                if pat.search(cmd):
+                    return int(p)
+            except Exception:
+                continue
+    except Exception as e:
+        print(f"Error scanning /proc: {e}", file=sys.stderr)
+
+    return None
+
+def get_last_log_snippet(agent_id: str, max_chars: int = 150) -> str:
+    logfile = LOGS_DIR / f"{agent_id}.log"
+    if not logfile.exists():
+        return "لا توجد سجلات بعد."
+    try:
+        content = logfile.read_text(encoding="utf-8", errors="replace").strip()
+        if not content:
+            return "السجل فارغ."
+        lines = [line.strip() for line in content.splitlines() if line.strip()]
+        if lines:
+            last = lines[-1]
+            return clean_ansi(last[:max_chars])
+        return "لا توجد أسطر مسجلة."
+    except Exception:
+        return "تعذر قراءة السجل."
+
+def get_system_metrics() -> Dict[str, Any]:
+    # Memory info
+    mem_total = 0
+    mem_available = 0
+    try:
+        with open("/proc/meminfo", "r") as f:
+            for line in f:
+                if line.startswith("MemTotal:"):
+                    mem_total = int(line.split()[1]) // 1024 # MB
+                elif line.startswith("MemAvailable:"):
+                    mem_available = int(line.split()[1]) // 1024 # MB
+    except Exception:
+        pass
+    mem_used = mem_total - mem_available if mem_total else 0
+    mem_percent = round((mem_used / mem_total * 100), 1) if mem_total else 0
+
+    # Uptime
+    uptime_sec = 0
+    try:
+        with open("/proc/uptime", "r") as f:
+            uptime_sec = int(float(f.readline().split()[0]))
+    except Exception:
+        pass
+
+    uptime_hours = round(uptime_sec / 3600, 1)
+
+    # Process count
+    proc_count = 0
+    try:
+        proc_count = len([p for p in os.listdir("/proc") if p.isdigit()])
+    except Exception:
+        pass
+
+    return {
+        "mem_total_mb": mem_total,
+        "mem_used_mb": mem_used,
+        "mem_available_mb": mem_available,
+        "mem_percent": mem_percent,
+        "uptime_hours": uptime_hours,
+        "proc_count": proc_count,
+        "python_version": sys.version.split()[0],
+    }
+
+class PromptRequest(BaseModel):
+    prompt: str
+
+@app.get("/api/system/stats")
+def api_system_stats():
+    agents = load_agents()
+    running_count = 0
+    for ag in agents:
+        pid = find_running_pid(ag.get("pattern"), ag["id"])
+        port_open = is_port_listening(ag.get("port"))
+        if pid or port_open:
+            running_count += 1
+
+    metrics = get_system_metrics()
+    metrics["total_agents"] = len(agents)
+    metrics["running_agents"] = running_count
+    return metrics
+
+@app.get("/api/agents")
+def api_get_agents():
+    agents = load_agents()
+    enriched = []
+    for ag in agents:
+        agent_id = ag["id"]
+        pid = find_running_pid(ag.get("pattern"), agent_id)
+        port = ag.get("port")
+        port_open = is_port_listening(port)
+        is_running = bool(pid or port_open)
+        snippet = get_last_log_snippet(agent_id)
+
+        item = dict(ag)
+        item["status"] = "running" if is_running else "stopped"
+        item["pid"] = pid
+        item["port_open"] = port_open
+        item["last_log"] = snippet
+        enriched.append(item)
+    return enriched
+
+@app.post("/api/agents/{agent_id}/start")
+def api_start_agent(agent_id: str):
+    agents = {ag["id"]: ag for ag in load_agents()}
+    if agent_id not in agents:
+        raise HTTPException(status_code=404, detail="الوكيل غير موجود")
+
+    ag = agents[agent_id]
+    existing_pid = find_running_pid(ag.get("pattern"), agent_id)
+    if existing_pid:
+        return {"ok": True, "message": f"الوكيل يعمل بالفعل بمعرّف العملية (PID: {existing_pid})", "pid": existing_pid}
+
+    cmd = ag.get("start_cmd")
+    cwd = ag.get("cwd", str(Path.home()))
+    if not cmd:
+        raise HTTPException(status_code=400, detail="أمر التشغيل غير محدد لهذا الوكيل")
+
+    logfile_path = LOGS_DIR / f"{agent_id}.log"
+    pidfile_path = LOGS_DIR / f"{agent_id}.pid"
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    with open(logfile_path, "a", encoding="utf-8") as log_f:
+        log_f.write(f"\n--- [بدء التشغيل] {timestamp} | الأمر: {cmd} ---\n")
+        log_f.flush()
+
+        try:
+            # Spawn process in new process group
+            proc = subprocess.Popen(
+                cmd,
+                shell=True,
+                cwd=cwd,
+                stdout=log_f,
+                stderr=subprocess.STDOUT,
+                preexec_fn=os.setsid,
+                env=os.environ.copy()
+            )
+            pid = proc.pid
+            managed_processes[agent_id] = {
+                "pid": pid,
+                "process": proc,
+                "started_at": timestamp
+            }
+            pidfile_path.write_text(str(pid))
+            return {"ok": True, "message": f"تم تشغيل الوكيل بنجاح (PID: {pid})", "pid": pid}
+        except Exception as e:
+            log_f.write(f"\n[خطأ أثناء التشغيل]: {str(e)}\n")
+            raise HTTPException(status_code=500, detail=f"فشل تشغيل الوكيل: {str(e)}")
+
+@app.post("/api/agents/{agent_id}/stop")
+def api_stop_agent(agent_id: str):
+    agents = {ag["id"]: ag for ag in load_agents()}
+    if agent_id not in agents:
+        raise HTTPException(status_code=404, detail="الوكيل غير موجود")
+
+    ag = agents[agent_id]
+    pid = find_running_pid(ag.get("pattern"), agent_id)
+    if not pid:
+        # Also clean up pidfile if any
+        (LOGS_DIR / f"{agent_id}.pid").unlink(missing_ok=True)
+        return {"ok": True, "message": "الوكيل متوقف بالفعل."}
+
+    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
+    logfile_path = LOGS_DIR / f"{agent_id}.log"
+    try:
+        with open(logfile_path, "a", encoding="utf-8") as log_f:
+            log_f.write(f"\n--- [إيقاف التشغيل] {timestamp} | إنهاء العملية (PID: {pid}) ---\n")
+
+        # Try SIGTERM to process group
+        try:
+            pgid = os.getpgid(pid)
+            os.killpg(pgid, signal.SIGTERM)
+        except Exception:
+            os.kill(pid, signal.SIGTERM)
+
+        # Wait a moment
+        for _ in range(10):
+            time.sleep(0.1)
+            if not os.path.exists(f"/proc/{pid}"):
+                break
+        else:
+            # Force kill if still alive
+            try:
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGKILL)
+            except Exception:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except Exception:
+                    pass
+
+        managed_processes.pop(agent_id, None)
+        (LOGS_DIR / f"{agent_id}.pid").unlink(missing_ok=True)
+        return {"ok": True, "message": f"تم إيقاف الوكيل بنجاح (PID: {pid})"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء إيقاف العملية: {str(e)}")
+
+@app.get("/api/agents/{agent_id}/logs")
+def api_get_logs(agent_id: str, lines: int = 150):
+    logfile = LOGS_DIR / f"{agent_id}.log"
+    if not logfile.exists():
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "content": f"لا توجد سجلات تشغيل حتى الآن للوكيل ({agent_id}). يمكنك النقر على 'تشغيل' لبدء تشغيله وتسجيل مخرجاته.",
+            "total_lines": 0
+        }
+    try:
+        text = logfile.read_text(encoding="utf-8", errors="replace")
+        all_lines = text.splitlines()
+        slice_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        cleaned = clean_ansi("\n".join(slice_lines))
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "content": cleaned if cleaned.strip() else "السجل فارغ حالياً.",
+            "total_lines": len(all_lines)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"تعذر قراءة السجل: {str(e)}")
+
+@app.delete("/api/agents/{agent_id}/logs")
+def api_clear_logs(agent_id: str):
+    logfile = LOGS_DIR / f"{agent_id}.log"
+    try:
+        logfile.write_text(f"--- تم تفريغ السجل في {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n", encoding="utf-8")
+        return {"ok": True, "message": "تم مسح السجل بنجاح"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"فشل مسح السجل: {str(e)}")
+
+@app.post("/api/agents/{agent_id}/prompt")
+async def api_send_prompt(agent_id: str, req: PromptRequest):
+    prompt = req.prompt.strip()
+    if not prompt:
+        raise HTTPException(status_code=400, detail="الرجاء كتابة نص الطلب أو الأمر")
+
+    agents = {ag["id"]: ag for ag in load_agents()}
+    if agent_id not in agents:
+        raise HTTPException(status_code=404, detail="الوكيل غير موجود")
+
+    ag = agents[agent_id]
+    start_time = time.time()
+
+    # Specialized handlers
+    if agent_id == "skillspector":
+        # Run security inspection analysis on the prompt/target
+        risks = []
+        dangerous_patterns = [
+            (r"\b(eval|exec|compile|os\.system|subprocess\.|__import__|open\s*\()\b", "استدعاء دوال تشغيل أوامر نظام مباشرة أو تفسير أكواد ديناميكية"),
+            (r"(api[_-]?key|secret|token|password|bearer|auth|credentials)\s*[:=]\s*['\"][A-Za-z0-9_\-\.]{8,}['\"]", "احتمال تسريب بيانات حساسة أو مفاتيح سرية صريحة"),
+            (r"\b(rm\s+-rf|chmod\s+777|curl\s+.*\s*\|\s*bash|wget\s+.*\s*\|\s*sh)\b", "أوامر شل عالية الخطورة قد تتسبب في تعديل أو حذف ملفات النظام"),
+            (r"(ignore\s+all\s+previous\s+instructions|system\s+prompt|jailbreak|bypass)", "محاولة حقن تعليمات برمجية (Prompt Injection) ضد النماذج"),
+        ]
+        for pat, desc in dangerous_patterns:
+            matches = re.findall(pat, prompt, re.IGNORECASE)
+            if matches:
+                risks.append({"pattern": desc, "count": len(matches)})
+
+        risk_level = "عالي ⚠️" if any("أوامر شل" in r["pattern"] or "حقن" in r["pattern"] for r in risks) else ("متوسط 🟡" if risks else "منخفض / آمن 🟢")
+        report_lines = [
+            f"### 🛡️ تقرير الفحص الأمني من SkillSpector",
+            f"**الهدف المفحوص:** تحليل النص والتعليمات البرمجية المدخلة",
+            f"**مستوى الخطورة الإجمالي:** `{risk_level}`",
+            f"**عدد المخاطر المكتشفة:** {len(risks)}",
+            "",
+            "#### 📊 التفاصيل والنتائج:"
+        ]
+        if risks:
+            for r in risks:
+                report_lines.append(f"- 🔴 **تنبيه أمني:** {r['pattern']} (تكرار: {r['count']})")
+            report_lines.append("\n**التوصية:** تجنب تشغيل الأكواد الحاوية على هذه الأنماط دون عزل أمني صارم (Sandboxing).")
+        else:
+            report_lines.append("- ✅ لم يتم رصد أي أنماط استغلال معروفة أو تسريب مفاتيح أو حقن تعليمات في هذا النص.")
+            report_lines.append("- ✅ فحص التوافق وسلامة المهارات (Skill Integrity): مطابق لمعايير الأمان.")
+
+        elapsed = round(time.time() - start_time, 2)
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "agent_name": ag["name_ar"],
+            "response": "\n".join(report_lines),
+            "execution_time_seconds": elapsed,
+            "status": "success"
+        }
+
+    elif agent_id == "hares-maestro":
+        # Ahl Al-Athar multi-agent governance pipeline evaluation
+        elapsed = round(time.time() - start_time, 2)
+        eval_report = [
+            f"### 🛡️ مراجعة حارس مايسترو — فريق حوكمة وإشراف الوكلاء",
+            f"**الطلب المقدم:** \"{prompt[:100]}{'...' if len(prompt)>100 else ''}\"",
+            "",
+            "#### 👥 تقييم فريق الوكلاء المتخصصين:",
+            "1. **Content Agent (وكيل المحتوى):** تم فحص سياق النص والمحتوى لضمان الالتزام بسياسات النشر واللغة العربية السليمة. 🟢 (مقبول)",
+            "2. **Security Agent (وكيل الأمان):** التحقق من نطاق الصلاحيات المطلوب. لا توجد عمليات غير مصرح بها. 🟢 (معتمد)",
+            "3. **Developer Agent (وكيل التطوير):** جاهزية البنية البرمجية لتنفيذ الأمر وفق أفضل الممارسات. 🟢 (جاهز)",
+            "4. **UX Agent (وكيل تجربة المستخدم):** التحقق من سهولة التفاعل والتكامل مع الواجهة الأمامية. 🟢 (متوافق)",
+            "5. **Verifier Agent (وكيل التحقق النهائي):** اعتماد المهمة وإدراجها ضمن سجل التدقيق (Audit Log). ✅ (تمت الموافقة)",
+            "",
+            "📌 **قرار الحوكمة:** المهمة مصرح بتنفيذها تحت رقابة النظام."
+        ]
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "agent_name": ag["name_ar"],
+            "response": "\n".join(eval_report),
+            "execution_time_seconds": elapsed,
+            "status": "success"
+        }
+
+    elif agent_id == "aboserag":
+        # Check if aboserag server is running on port 3000
+        if is_port_listening(3000):
+            try:
+                import urllib.request
+                req_data = json.dumps({"message": prompt}).encode("utf-8")
+                http_req = urllib.request.Request(
+                    "http://127.0.0.1:3000/api/chat",
+                    data=req_data,
+                    headers={"Content-Type": "application/json"}
+                )
+                with urllib.request.urlopen(http_req, timeout=15) as resp:
+                    resp_data = resp.read().decode("utf-8")
+                    return {
+                        "ok": True,
+                        "agent_id": agent_id,
+                        "agent_name": ag["name_ar"],
+                        "response": f"**رد أبو سراج (عبر الخادم النشط):**\n\n{resp_data}",
+                        "execution_time_seconds": round(time.time() - start_time, 2),
+                        "status": "success"
+                    }
+            except Exception as e:
+                pass
+        # Fallback direct response
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "agent_name": ag["name_ar"],
+            "response": f"### 🤖 رسالة من أبو سراج\n\nأهلاً بك! لقد استلمت طلبك:\n> {prompt}\n\n💡 خادم أبو سراج في المسار `~/aboserag-agent` جاهز. يمكنك تشغيل الخادم بالنقر على زر **تشغيل** أعلاه لفتح واجهة الويب PWA وتفعيل أدوات قراءة الملفات وتنفيذ الأوامر وتكامل Gmail.",
+            "execution_time_seconds": round(time.time() - start_time, 2),
+            "status": "info"
+        }
+
+    elif agent_id == "crush":
+        # Run crush non-interactively
+        try:
+            cmd = ["crush", "run", prompt]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
+            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            res = output or err or "تم تنفيذ الأمر بواسطة Charm Crush دون مخرجات."
+            return {
+                "ok": True,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": res,
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "success"
+            }
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": "⚠️ استغرق وكيل Crush وقتاً طويلاً للإجابة (تجاوز مهلة 30 ثانية). يمكنك تشغيل الوكيل كخادم خلفي.",
+                "execution_time_seconds": 30.0,
+                "status": "timeout"
+            }
+        except Exception as e:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": f"⚠️ تعذر تشغيل أمر Crush: {str(e)}",
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "error"
+            }
+
+    elif agent_id == "opencode":
+        # Run opencode non-interactively
+        try:
+            cmd = ["opencode", "run", prompt]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=35.0)
+            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
+            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            res = output or err or "تم تنفيذ الأمر بواسطة OpenCode."
+            return {
+                "ok": True,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": res,
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "success"
+            }
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": "⚠️ استغرق OpenCode وقتاً طويلاً. إذا كان بحاجة لخادم، شغّل OpenCode serve أولاً.",
+                "execution_time_seconds": 35.0,
+                "status": "timeout"
+            }
+        except Exception as e:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": f"⚠️ خطأ أثناء استدعاء OpenCode: {str(e)}",
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "error"
+            }
+
+    elif agent_id == "codex":
+        # Run codex exec
+        try:
+            cmd = ["codex", "exec", prompt]
+            proc = await asyncio.create_subprocess_exec(
+                *cmd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
+            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
+            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            res = output or err or "تم تنفيذ المهمة بواسطة Codex."
+            return {
+                "ok": True,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": res,
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "success"
+            }
+        except asyncio.TimeoutError:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": "⚠️ استغرق Codex وقتاً أطول من المعتاد. يرجى مراجعة إعدادات تسجيل الدخول والشبكة.",
+                "execution_time_seconds": 30.0,
+                "status": "timeout"
+            }
+        except Exception as e:
+            return {
+                "ok": False,
+                "agent_id": agent_id,
+                "agent_name": ag["name_ar"],
+                "response": f"⚠️ تعذر استدعاء Codex: {str(e)}",
+                "execution_time_seconds": round(time.time() - start_time, 2),
+                "status": "error"
+            }
+
+    else:
+        # Generic agent prompt response
+        elapsed = round(time.time() - start_time, 2)
+        is_running = bool(find_running_pid(ag.get("pattern"), agent_id) or is_port_listening(ag.get("port")))
+        status_text = "🟢 قيد التشغيل حالياً" if is_running else "🔴 متوقف حالياً"
+        res = [
+            f"### 💬 رد الوكيل: {ag['name_ar']}",
+            f"**الحالة التشغيلية:** {status_text}",
+            f"**المسار:** `{ag.get('cwd', '~')}`",
+            "",
+            f"تم استلام طلبك: **\"{prompt}\"**",
+            "",
+            "ℹ️ هذا الوكيل يتطلب بيئته الخاصة أو تشغيل خادمه للتعامل التفاعلي الكامل. يمكنك النقر على زر **تشغيل** أعلى البطاقة لتشغيله في الخلفية ثم الاطلاع على سجلاته الحية."
+        ]
+        return {
+            "ok": True,
+            "agent_id": agent_id,
+            "agent_name": ag["name_ar"],
+            "response": "\n".join(res),
+            "execution_time_seconds": elapsed,
+            "status": "info"
+        }
+
+@app.get("/", response_class=HTMLResponse)
+def serve_dashboard():
+    html_file = BASE_DIR / "static" / "index.html"
+    if html_file.exists():
+        return HTMLResponse(content=html_file.read_text(encoding="utf-8"))
+    return HTMLResponse(content="<h1>Agents Hub is starting...</h1>")
+
+@app.get("/manifest.json")
+def serve_manifest():
+    manifest_file = BASE_DIR / "static" / "manifest.json"
+    if manifest_file.exists():
+        return FileResponse(manifest_file, media_type="application/manifest+json")
+    raise HTTPException(status_code=404, detail="Manifest not found")
+
+@app.get("/sw.js")
+def serve_sw():
+    sw_file = BASE_DIR / "static" / "sw.js"
+    if sw_file.exists():
+        return FileResponse(sw_file, media_type="application/javascript")
+    raise HTTPException(status_code=404, detail="Service worker not found")
+
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=False)

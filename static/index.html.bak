@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>مركز إدارة الوكلاء الموحد | Unified Agents Hub</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #090d16;
+      --card-bg: rgba(18, 24, 38, 0.85);
+      --card-border: rgba(255, 255, 255, 0.08);
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --accent: #38bdf8;
+      --accent-hover: #0284c7;
+      --green: #10b981;
+      --green-glow: rgba(16, 185, 129, 0.25);
+      --red: #f43f5e;
+      --red-glow: rgba(244, 63, 94, 0.25);
+      --yellow: #f59e0b;
+      --radius: 16px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 10% 20%, #0f172a 0%, #080c14 90%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 20px 16px;
+      line-height: 1.6;
+    }
+
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+
+    /* Header */
+    header {
+      background: var(--card-bg);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .brand-icon {
+      font-size: 2.4rem;
+      background: linear-gradient(135deg, #0284c7, #38bdf8, #818cf8);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      filter: drop-shadow(0 0 12px rgba(56, 189, 248, 0.4));
+    }
+
+    .brand h1 {
+      font-size: 1.6rem;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand p {
+      color: var(--text-muted);
+      font-size: 0.9rem;
+    }
+
+    /* Stats Bar */
+    .stats-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    .stat-pill {
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--card-border);
+      border-radius: 9999px;
+      padding: 6px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.85rem;
+    }
+
+    .stat-pill .val {
+      font-weight: 700;
+      color: var(--accent);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    /* Refresh button */
+    .btn-refresh {
+      background: rgba(56, 189, 248, 0.1);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      padding: 8px 16px;
+      border-radius: 9999px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.85rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-refresh:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* Main Grid */
+    .section-title {
+      font-size: 1.3rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .section-title span {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+
+    .agents-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 20px;
+      margin-bottom: 32px;
+    }
+
+    /* Agent Card */
+    .agent-card {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .agent-card:hover {
+      transform: translateY(-3px);
+      border-color: rgba(56, 189, 248, 0.3);
+      box-shadow: 0 12px 24px rgba(0, 0, 0, 0.3);
+    }
+
+    .agent-card.running {
+      border-color: rgba(16, 185, 129, 0.35);
+      box-shadow: 0 0 20px var(--green-glow);
+    }
+
+    .card-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .agent-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .agent-icon {
+      font-size: 2rem;
+      width: 48px;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--card-border);
+    }
+
+    .agent-name h3 {
+      font-size: 1.1rem;
+      font-weight: 700;
+    }
+
+    .agent-name .category {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 9999px;
+    }
+
+    .status-badge.running {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.4);
+    }
+
+    .status-badge.stopped {
+      background: rgba(244, 63, 94, 0.1);
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.3);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    .status-badge.running .status-dot {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: pulse 2s infinite;
+    }
+
+    .status-badge.stopped .status-dot {
+      background: #f43f5e;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .card-body {
+      margin-bottom: 16px;
+      flex-grow: 1;
+    }
+
+    .agent-desc {
+      color: #cbd5e1;
+      font-size: 0.88rem;
+      margin-bottom: 12px;
+      line-height: 1.5;
+    }
+
+    .agent-meta {
+      background: rgba(0, 0, 0, 0.25);
+      border-radius: 8px;
+      padding: 8px 10px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .meta-val {
+      color: #93c5fd;
+    }
+
+    /* Actions */
+    .card-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      flex: 1;
+      padding: 8px 10px;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      font-family: inherit;
+    }
+
+    .btn-start {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34d399;
+      border: 1px solid rgba(16, 185, 129, 0.35);
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background: #10b981;
+      color: #fff;
+    }
+
+    .btn-stop {
+      background: rgba(244, 63, 94, 0.15);
+      color: #fb7185;
+      border: 1px solid rgba(244, 63, 94, 0.35);
+    }
+
+    .btn-stop:hover:not(:disabled) {
+      background: #f43f5e;
+      color: #fff;
+    }
+
+    .btn-logs {
+      background: rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+      border: 1px solid var(--card-border);
+    }
+
+    .btn-logs:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .btn-chat {
+      background: rgba(56, 189, 248, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .btn-chat:hover {
+      background: var(--accent);
+      color: #000;
+    }
+
+    .btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    /* Chat & Command Hub */
+    .chat-section {
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: var(--radius);
+      padding: 24px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+      margin-bottom: 40px;
+    }
+
+    .chat-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .chat-controls {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .select-agent {
+      background: rgba(15, 23, 42, 0.8);
+      border: 1px solid rgba(56, 189, 248, 0.3);
+      color: #fff;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 0.9rem;
+      font-family: inherit;
+      outline: none;
+    }
+
+    .select-agent option {
+      background: #0f172a;
+      color: #fff;
+    }
+
+    .quick-prompts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 16px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--card-border);
+      color: #94a3b8;
+      padding: 5px 12px;
+      border-radius: 9999px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .chip:hover {
+      background: rgba(56, 189, 248, 0.15);
+      border-color: rgba(56, 189, 248, 0.4);
+      color: var(--accent);
+    }
+
+    .prompt-box {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .prompt-input {
+      width: 100%;
+      min-height: 95px;
+      background: rgba(10, 15, 29, 0.8);
+      border: 1px solid var(--card-border);
+      border-radius: 12px;
+      color: #fff;
+      padding: 14px 16px;
+      font-size: 0.95rem;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .prompt-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
+    }
+
+    .prompt-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .prompt-hint {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+
+    .btn-send {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: #090d16;
+      font-weight: 700;
+      font-size: 0.95rem;
+      padding: 10px 24px;
+      border-radius: 10px;
+      border: none;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 14px rgba(56, 189, 248, 0.35);
+    }
+
+    .btn-send:hover:not(:disabled) {
+      filter: brightness(1.1);
+      transform: translateY(-1px);
+    }
+
+    .btn-send:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* Output Stream / Response */
+    .response-area {
+      margin-top: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .chat-bubble {
+      background: rgba(15, 23, 42, 0.75);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      padding: 18px;
+      animation: fadeIn 0.3s ease;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .bubble-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      padding-bottom: 8px;
+    }
+
+    .bubble-agent {
+      font-weight: 700;
+      color: var(--accent);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.92rem;
+    }
+
+    .bubble-time {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .bubble-body {
+      font-size: 0.92rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .bubble-footer {
+      margin-top: 10px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .btn-copy {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--card-border);
+      color: #94a3b8;
+      font-size: 0.75rem;
+      padding: 4px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+
+    .btn-copy:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    /* Modal for Logs */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(8px);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 1000;
+      padding: 20px;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    .modal-card {
+      background: #0f172a;
+      border: 1px solid rgba(56, 189, 248, 0.25);
+      border-radius: 18px;
+      width: 100%;
+      max-width: 900px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+    }
+
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .modal-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .modal-close {
+      background: transparent;
+      border: none;
+      color: var(--text-muted);
+      font-size: 1.4rem;
+      cursor: pointer;
+      line-height: 1;
+    }
+
+    .modal-body {
+      padding: 16px 20px;
+      overflow-y: auto;
+      flex-grow: 1;
+    }
+
+    .log-viewer {
+      background: #050811;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+      padding: 14px;
+      color: #38bdf8;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-all;
+      min-height: 350px;
+      max-height: 55vh;
+      overflow-y: auto;
+    }
+
+    .modal-footer {
+      padding: 12px 20px;
+      border-top: 1px solid var(--card-border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Toast */
+    .toast-container {
+      position: fixed;
+      bottom: 24px;
+      left: 24px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .toast {
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid var(--card-border);
+      border-right: 4px solid var(--accent);
+      color: #fff;
+      padding: 12px 18px;
+      border-radius: 10px;
+      font-size: 0.88rem;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+      animation: slideIn 0.3s ease;
+    }
+
+    @keyframes slideIn {
+      from { transform: translateX(-100%); opacity: 0; }
+      to { transform: translateX(0); opacity: 1; }
+    }
+
+    @media (max-width: 640px) {
+      .agents-grid {
+        grid-template-columns: 1fr;
+      }
+      .brand h1 {
+        font-size: 1.3rem;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <!-- Header -->
+  <header>
+    <div class="brand">
+      <div class="brand-icon">⚡</div>
+      <div>
+        <h1>مركز إدارة الوكلاء الموحد</h1>
+        <p>Unified AI Agents Hub — واجهة التحكم والمحادثة الشاملة لجميع وكلاء بيئة العمل</p>
+      </div>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-pill">
+        <span>إجمالي الوكلاء:</span>
+        <span class="val" id="stat-total">11</span>
+      </div>
+      <div class="stat-pill">
+        <span>يعمل الآن:</span>
+        <span class="val" id="stat-running" style="color: var(--green);">0</span>
+      </div>
+      <div class="stat-pill">
+        <span>الذاكرة:</span>
+        <span class="val" id="stat-mem">-- MB</span>
+      </div>
+      <button class="btn-refresh" onclick="refreshAll()">
+        🔄 تحديث الحالة
+      </button>
+    </div>
+  </header>
+
+  <!-- Agents Section -->
+  <div class="section-title">
+    <h2>الوكلاء والأنظمة المكتشفة</h2>
+    <span id="agents-count-badge">11 وكيل</span>
+  </div>
+
+  <div class="agents-grid" id="agents-grid">
+    <!-- Populated dynamically via JS -->
+  </div>
+
+  <!-- Unified Chat & Command Hub -->
+  <div class="chat-section">
+    <div class="chat-header">
+      <div class="section-title" style="margin-bottom: 0;">
+        <h2>صندوق الأوامر والمحادثة الموحد</h2>
+        <span>Unified Chat & Dispatch</span>
+      </div>
+
+      <div class="chat-controls">
+        <label for="agent-selector" style="font-size: 0.85rem; color: var(--text-muted);">توجيه الطلب إلى:</label>
+        <select id="agent-selector" class="select-agent">
+          <!-- Populated dynamically -->
+        </select>
+      </div>
+    </div>
+
+    <!-- Quick Prompts Chips -->
+    <div class="quick-prompts">
+      <span class="chip" onclick="setPrompt('افحص أمان بيئة العمل والأكواد والمهارات المثبتة بحثاً عن أي ثغرات أو مخاطر.')">🛡️ فحص أمني للمهارات (SkillSpector)</span>
+      <span class="chip" onclick="setPrompt('قم بمراجعة سياسات الحوكمة وضبط المهام وتوزيع الأدوار للوكلاء.')">👥 مراجعة فريق الحوكمة (Hares Maestro)</span>
+      <span class="chip" onclick="setPrompt('ما هي حالة النظام والمهام المعلقة في الذاكرة؟')">🤖 استفسار شخصي (أبو سراج)</span>
+      <span class="chip" onclick="setPrompt('اكتب دالة بايثون سريعة لفحص العمليات النشطة واستهلاك الذاكرة.')">💻 برمجة سريعة (Crush / Codex)</span>
+    </div>
+
+    <!-- Input -->
+    <div class="prompt-box">
+      <textarea id="prompt-input" class="prompt-input" placeholder="اكتب أمرك أو استفسارك هنا للوكيل المحدد... (Ctrl + Enter للإرسال السريع)" onkeydown="handleKeyDown(event)"></textarea>
+      <div class="prompt-actions">
+        <span class="prompt-hint">💡 يمكنك توجيه أي أمر تحليلي أو برمجي أو أمني مباشرة لأي وكيل دون مغادرة الشاشة.</span>
+        <button id="btn-send-prompt" class="btn-send" onclick="sendPrompt()">
+          <span>إرسال الأمر للوكيل</span>
+          <span>🚀</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Response History -->
+    <div class="response-area" id="response-area">
+      <!-- Chat bubbles inserted here -->
+    </div>
+  </div>
+</div>
+
+<!-- Logs Modal -->
+<div class="modal-overlay" id="logs-modal" onclick="closeLogsModal(event)">
+  <div class="modal-card" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">
+        <span id="modal-agent-icon">📜</span>
+        <span id="modal-agent-title">سجل التشغيل</span>
+      </div>
+      <button class="modal-close" onclick="closeLogsModal()">&times;</button>
+    </div>
+    <div class="modal-body">
+      <pre class="log-viewer" id="log-content">جاري تحميل السجلات...</pre>
+    </div>
+    <div class="modal-footer">
+      <div style="display: flex; gap: 10px; align-items: center;">
+        <label style="font-size: 0.82rem; color: var(--text-muted); display: flex; align-items: center; gap: 6px; cursor: pointer;">
+          <input type="checkbox" id="auto-refresh-logs" checked onchange="toggleAutoLogRefresh()">
+          تحديث تلقائي كل 2 ثوانٍ
+        </label>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="btn btn-logs" onclick="fetchModalLogs()">🔄 تحديث الآن</button>
+        <button class="btn btn-stop" onclick="clearModalLogs()">🗑️ مسح السجل</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toasts -->
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+  let agentsData = [];
+  let currentLogAgentId = null;
+  let logPollInterval = null;
+
+  async function init() {
+    await refreshAll();
+    setInterval(refreshAll, 3500); // Polling every 3.5s
+  }
+
+  async function refreshAll() {
+    try {
+      const [agentsRes, statsRes] = await Promise.all([
+        fetch('/api/agents'),
+        fetch('/api/system/stats')
+      ]);
+
+      if (agentsRes.ok) {
+        agentsData = await agentsRes.json();
+        renderAgents(agentsData);
+        updateAgentSelector(agentsData);
+      }
+
+      if (statsRes.ok) {
+        const stats = await statsRes.json();
+        renderStats(stats);
+      }
+    } catch (e) {
+      console.warn("Auto-refresh error:", e);
+    }
+  }
+
+  function renderStats(stats) {
+    document.getElementById('stat-total').textContent = stats.total_agents || agentsData.length;
+    document.getElementById('stat-running').textContent = stats.running_agents ?? 0;
+    document.getElementById('stat-mem').textContent = `${stats.mem_used_mb || 0} / ${stats.mem_total_mb || 0} MB (${stats.mem_percent || 0}%)`;
+    document.getElementById('agents-count-badge').textContent = `${stats.total_agents || agentsData.length} وكيل مكتشف`;
+  }
+
+  function renderAgents(agents) {
+    const grid = document.getElementById('agents-grid');
+    grid.innerHTML = '';
+
+    agents.forEach(ag => {
+      const isRunning = ag.status === 'running';
+      const card = document.createElement('div');
+      card.className = `agent-card ${isRunning ? 'running' : ''}`;
+
+      const portHtml = ag.port ? `<div class="meta-row"><span>المنفذ (Port):</span><span class="meta-val">${ag.port} ${ag.port_open ? '🟢 مفتوح' : '⚪'}</span></div>` : '';
+      const pidHtml = ag.pid ? `<div class="meta-row"><span>معرف العملية (PID):</span><span class="meta-val">${ag.pid}</span></div>` : '';
+
+      card.innerHTML = `
+        <div class="card-top">
+          <div class="agent-info">
+            <div class="agent-icon">${ag.icon || '🤖'}</div>
+            <div class="agent-name">
+              <h3>${ag.name_ar}</h3>
+              <div class="category">${ag.category_ar || ag.name}</div>
+            </div>
+          </div>
+          <span class="status-badge ${isRunning ? 'running' : 'stopped'}">
+            <span class="status-dot"></span>
+            ${isRunning ? 'يعمل الآن' : 'متوقف'}
+          </span>
+        </div>
+
+        <div class="card-body">
+          <p class="agent-desc">${ag.description_ar}</p>
+          <div class="agent-meta">
+            ${pidHtml}
+            ${portHtml}
+            <div class="meta-row"><span>آخر نشاط:</span><span class="meta-val" style="direction:ltr; text-align:right;">${escapeHtml(ag.last_log || 'لا يوجد')}</span></div>
+          </div>
+        </div>
+
+        <div class="card-actions">
+          ${isRunning 
+            ? `<button class="btn btn-stop" onclick="stopAgent('${ag.id}')">⏹️ إيقاف</button>`
+            : `<button class="btn btn-start" onclick="startAgent('${ag.id}')">▶️ تشغيل</button>`
+          }
+          <button class="btn btn-logs" onclick="openLogsModal('${ag.id}', '${ag.name_ar}', '${ag.icon || '📜'}')">📜 السجل</button>
+          <button class="btn btn-chat" onclick="selectAgentForChat('${ag.id}')">💬 محادثة</button>
+        </div>
+      `;
+      grid.appendChild(card);
+    });
+  }
+
+  function updateAgentSelector(agents) {
+    const selector = document.getElementById('agent-selector');
+    const currentVal = selector.value;
+    selector.innerHTML = '';
+
+    agents.forEach(ag => {
+      const opt = document.createElement('option');
+      opt.value = ag.id;
+      const statusIcon = ag.status === 'running' ? '🟢' : '⚪';
+      opt.textContent = `${statusIcon} ${ag.name_ar} (${ag.name})`;
+      selector.appendChild(opt);
+    });
+
+    if (currentVal && agents.some(a => a.id === currentVal)) {
+      selector.value = currentVal;
+    }
+  }
+
+  function selectAgentForChat(agentId) {
+    const selector = document.getElementById('agent-selector');
+    selector.value = agentId;
+    const input = document.getElementById('prompt-input');
+    input.focus();
+    input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    showToast(`تم تحديد الوكيل: ${selector.options[selector.selectedIndex].text}`);
+  }
+
+  function setPrompt(text) {
+    const input = document.getElementById('prompt-input');
+    input.value = text;
+    input.focus();
+  }
+
+  function handleKeyDown(event) {
+    if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+      sendPrompt();
+    }
+  }
+
+  async function startAgent(agentId) {
+    showToast("جاري بدء تشغيل الوكيل...");
+    try {
+      const res = await fetch(`/api/agents/${agentId}/start`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`✅ ${data.message}`);
+        await refreshAll();
+      } else {
+        showToast(`❌ ${data.detail || 'فشل تشغيل الوكيل'}`);
+      }
+    } catch (e) {
+      showToast(`❌ خطأ في الاتصال: ${e.message}`);
+    }
+  }
+
+  async function stopAgent(agentId) {
+    showToast("جاري إيقاف الوكيل...");
+    try {
+      const res = await fetch(`/api/agents/${agentId}/stop`, { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        showToast(`⏹️ ${data.message}`);
+        await refreshAll();
+      } else {
+        showToast(`❌ ${data.detail || 'فشل إيقاف الوكيل'}`);
+      }
+    } catch (e) {
+      showToast(`❌ خطأ في الاتصال: ${e.message}`);
+    }
+  }
+
+  async function sendPrompt() {
+    const agentId = document.getElementById('agent-selector').value;
+    const promptInput = document.getElementById('prompt-input');
+    const prompt = promptInput.value.trim();
+    if (!prompt) {
+      showToast("يرجى كتابة نص الأمر أو الاستفسار أولاً.");
+      return;
+    }
+
+    const sendBtn = document.getElementById('btn-send-prompt');
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = `<span>جاري المعالجة...</span><span>⏳</span>`;
+
+    const responseArea = document.getElementById('response-area');
+    const bubble = document.createElement('div');
+    bubble.className = 'chat-bubble';
+    
+    const targetAgent = agentsData.find(a => a.id === agentId) || { name_ar: agentId, icon: '🤖' };
+    const bubbleId = 'bubble-' + Date.now();
+    bubble.id = bubbleId;
+
+    bubble.innerHTML = `
+      <div class="bubble-header">
+        <div class="bubble-agent">
+          <span>${targetAgent.icon || '🤖'}</span>
+          <span>${targetAgent.name_ar}</span>
+        </div>
+        <div class="bubble-time">${new Date().toLocaleTimeString('ar-EG')}</div>
+      </div>
+      <div style="color: var(--text-muted); font-size: 0.85rem; margin-bottom: 8px;">
+        <strong>طلبك:</strong> ${escapeHtml(prompt)}
+      </div>
+      <div class="bubble-body" id="${bubbleId}-body">
+        <em style="color: var(--accent);">جاري تنفيذ الطلب بواسطة الوكيل والتقاط المخرجات...</em>
+      </div>
+      <div class="bubble-footer">
+        <button class="btn-copy" onclick="copyBubbleText('${bubbleId}-body')">📋 نسخ الرد</button>
+      </div>
+    `;
+
+    responseArea.prepend(bubble);
+
+    try {
+      const res = await fetch(`/api/agents/${agentId}/prompt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt })
+      });
+      const data = await res.json();
+
+      const bodyEl = document.getElementById(`${bubbleId}-body`);
+      if (res.ok) {
+        bodyEl.innerHTML = formatMarkdown(data.response || 'تم بنجاح');
+        if (data.execution_time_seconds) {
+          const timePill = document.createElement('div');
+          timePill.style = "font-size: 0.72rem; color: #94a3b8; margin-top: 8px; font-family: monospace;";
+          timePill.textContent = `⚡ استغرق التنفيذ: ${data.execution_time_seconds} ثانية`;
+          bodyEl.appendChild(timePill);
+        }
+        showToast("✅ تم استلام رد الوكيل بنجاح");
+      } else {
+        bodyEl.innerHTML = `<span style="color: #fb7185;">❌ ${data.detail || 'حدث خطأ أثناء معالجة الطلب'}</span>`;
+        showToast("❌ فشل تنفيذ الطلب");
+      }
+    } catch (e) {
+      const bodyEl = document.getElementById(`${bubbleId}-body`);
+      bodyEl.innerHTML = `<span style="color: #fb7185;">❌ تعذر الاتصال بالخادم: ${e.message}</span>`;
+      showToast("❌ خطأ اتصال");
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.innerHTML = `<span>إرسال الأمر للوكيل</span><span>🚀</span>`;
+      promptInput.value = '';
+    }
+  }
+
+  /* Logs Modal */
+  function openLogsModal(agentId, agentName, icon) {
+    currentLogAgentId = agentId;
+    document.getElementById('modal-agent-icon').textContent = icon;
+    document.getElementById('modal-agent-title').textContent = `سجل تشغيل: ${agentName}`;
+    document.getElementById('logs-modal').classList.add('active');
+    fetchModalLogs();
+    startLogPolling();
+  }
+
+  function closeLogsModal(event) {
+    if (event && event.target !== document.getElementById('logs-modal') && !event.target.classList.contains('modal-close')) {
+      return;
+    }
+    document.getElementById('logs-modal').classList.remove('active');
+    stopLogPolling();
+    currentLogAgentId = null;
+  }
+
+  async function fetchModalLogs() {
+    if (!currentLogAgentId) return;
+    try {
+      const res = await fetch(`/api/agents/${currentLogAgentId}/logs?lines=200`);
+      const data = await res.json();
+      const viewer = document.getElementById('log-content');
+      viewer.textContent = data.content || 'لا توجد سجلات.';
+      viewer.scrollTop = viewer.scrollHeight;
+    } catch (e) {
+      document.getElementById('log-content').textContent = `تعذر جلب السجلات: ${e.message}`;
+    }
+  }
+
+  async function clearModalLogs() {
+    if (!currentLogAgentId) return;
+    if (!confirm('هل أنت متأكد من رغبتك في تفريغ سجل هذا الوكيل؟')) return;
+    try {
+      await fetch(`/api/agents/${currentLogAgentId}/logs`, { method: 'DELETE' });
+      fetchModalLogs();
+      showToast("تم تفريغ السجل.");
+    } catch (e) {
+      showToast("فشل مسح السجل.");
+    }
+  }
+
+  function startLogPolling() {
+    stopLogPolling();
+    if (document.getElementById('auto-refresh-logs').checked) {
+      logPollInterval = setInterval(fetchModalLogs, 2000);
+    }
+  }
+
+  function stopLogPolling() {
+    if (logPollInterval) {
+      clearInterval(logPollInterval);
+      logPollInterval = null;
+    }
+  }
+
+  function toggleAutoLogRefresh() {
+    if (document.getElementById('auto-refresh-logs').checked) {
+      startLogPolling();
+    } else {
+      stopLogPolling();
+    }
+  }
+
+  function copyBubbleText(elId) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    navigator.clipboard.writeText(el.innerText).then(() => {
+      showToast("📋 تم نسخ النص للحافظة");
+    });
+  }
+
+  function showToast(msg) {
+    const container = document.getElementById('toast-container');
+    const toast = document.createElement('div');
+    toast.className = 'toast';
+    toast.textContent = msg;
+    container.appendChild(toast);
+    setTimeout(() => {
+      toast.style.transition = 'opacity 0.4s ease';
+      toast.style.opacity = '0';
+      setTimeout(() => toast.remove(), 400);
+    }, 3500);
+  }
+
+  function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  function formatMarkdown(text) {
+    if (!text) return '';
+    let escaped = escapeHtml(text);
+    // Simple bolding and code blocks
+    escaped = escaped.replace(/### (.*?)\n/g, '<h3 style="color:var(--accent); margin:10px 0 6px 0;">$1</h3>');
+    escaped = escaped.replace(/#### (.*?)\n/g, '<h4 style="color:#cbd5e1; margin:8px 0 4px 0;">$1</h4>');
+    escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+    escaped = escaped.replace(/`([^`]+)`/g, '<code style="background:rgba(255,255,255,0.08); padding:2px 6px; border-radius:4px; font-family:monospace; color:#38bdf8;">$1</code>');
+    return escaped;
+  }
+
+  window.addEventListener('DOMContentLoaded', init);
+</script>
+
+</body>
+</html>

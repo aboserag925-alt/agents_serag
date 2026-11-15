@@ -1,0 +1,2384 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>AI Agents Hub | مركز إدارة الوكلاء الموحد</title>
+
+  <!-- PWA Manifest & App Configuration -->
+  <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#090a0f">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AgentsHub">
+  <meta name="application-name" content="AgentsHub">
+  
+  <!-- App Icons -->
+  <link rel="icon" type="image/svg+xml" href="/static/icon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="/static/icon-192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="/static/icon-512.png">
+  <link rel="apple-touch-icon" href="/static/icon-192.png">
+
+  <!-- Typography: IBM Plex Sans Arabic, Cairo, JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <style>
+    /* ==========================================================================
+       Wix Symphony Design System & Mobile Viewport Reset
+       ========================================================================== */
+    :root {
+      --bg-obsidian: #090a0f;
+      --bg-surface: rgba(22, 24, 34, 0.75);
+      --bg-surface-elevated: rgba(28, 32, 48, 0.85);
+      --bg-surface-card: rgba(20, 23, 34, 0.78);
+      --border-subtle: rgba(255, 255, 255, 0.08);
+      --border-card: rgba(255, 255, 255, 0.09);
+
+      --text-primary: #f8fafc;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --accent-indigo: #6366f1;
+      --accent-indigo-glow: rgba(99, 102, 241, 0.32);
+      --accent-cyan: #06b6d4;
+      --accent-cyan-glow: rgba(6, 182, 212, 0.32);
+      --accent-emerald: #10b981;
+      --accent-emerald-glow: rgba(16, 185, 129, 0.35);
+      --accent-rose: #f43f5e;
+      --accent-rose-glow: rgba(244, 63, 94, 0.35);
+      --accent-amber: #f59e0b;
+
+      --grad-symphony: linear-gradient(135deg, #6366f1 0%, #06b6d4 50%, #10b981 100%);
+      --grad-action: linear-gradient(135deg, #6366f1 0%, #06b6d4 100%);
+      --grad-emerald-btn: linear-gradient(135deg, rgba(16, 185, 129, 0.22) 0%, rgba(5, 150, 105, 0.38) 100%);
+      --grad-rose-btn: linear-gradient(135deg, rgba(244, 63, 94, 0.22) 0%, rgba(225, 29, 72, 0.38) 100%);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 18px;
+      --radius-xl: 22px;
+      --radius-full: 9999px;
+
+      --font-ar: 'IBM Plex Sans Arabic', 'Cairo', system-ui, -apple-system, sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
+
+      --touch-min: 44px;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html {
+      width: 100%;
+      max-width: 100vw;
+      overflow-x: hidden;
+      font-size: 15px;
+      direction: rtl;
+      scroll-behavior: smooth;
+    }
+
+    body {
+      width: 100%;
+      max-width: 100vw;
+      min-height: 100vh;
+      overflow-x: hidden;
+      font-family: var(--font-ar);
+      background-color: var(--bg-obsidian);
+      background-image: 
+        radial-gradient(ellipse 90% 50% at 50% -12%, rgba(99, 102, 241, 0.18), transparent 70%),
+        radial-gradient(ellipse 65% 45% at 100% 35%, rgba(6, 182, 212, 0.09), transparent 60%),
+        radial-gradient(ellipse 65% 45% at 0% 75%, rgba(16, 185, 129, 0.08), transparent 60%);
+      background-attachment: fixed;
+      color: var(--text-primary);
+      line-height: 1.55;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(9, 10, 15, 0.6);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.16);
+      border-radius: var(--radius-full);
+    }
+
+    /* Shell Container */
+    .app-shell {
+      width: 100%;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 12px 50px;
+    }
+
+    /* ==========================================================================
+       1. Compact Sticky Header & PWA Status Bar
+       ========================================================================== */
+    .sticky-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      width: 100%;
+      background: rgba(9, 10, 15, 0.88);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 10px 14px;
+      margin-bottom: 16px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+    }
+
+    .header-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .brand-group {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-logo-box {
+      width: 40px;
+      height: 40px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.25), rgba(6, 182, 212, 0.2));
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 18px var(--accent-indigo-glow);
+      flex-shrink: 0;
+    }
+
+    .brand-text h1 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      line-height: 1.25;
+      color: #fff;
+    }
+
+    .brand-text p {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .pwa-active-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 0.65rem;
+      font-weight: 700;
+      color: #38bdf8;
+      background: rgba(6, 182, 212, 0.15);
+      padding: 1px 6px;
+      border-radius: var(--radius-full);
+      border: 1px solid rgba(6, 182, 212, 0.3);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* PWA Install Button */
+    .btn-pwa-install {
+      display: none; /* Shown dynamically when installable */
+      min-height: 36px;
+      padding: 0 12px;
+      border-radius: var(--radius-full);
+      background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(6, 182, 212, 0.25));
+      border: 1px solid rgba(6, 182, 212, 0.45);
+      color: #38bdf8;
+      font-family: inherit;
+      font-size: 0.76rem;
+      font-weight: 700;
+      cursor: pointer;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+      box-shadow: 0 0 14px var(--accent-cyan-glow);
+    }
+
+    .btn-pwa-install:hover {
+      background: var(--accent-cyan);
+      color: #090a0f;
+    }
+
+    .metric-pill {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 6px 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 0.76rem;
+      font-weight: 600;
+      color: var(--text-secondary);
+      height: 36px;
+    }
+
+    .metric-pill .dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse-dot 1.8s infinite ease-in-out;
+    }
+
+    .metric-pill .val {
+      font-family: var(--font-mono);
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* RAM Progress Bar */
+    .ram-metric-pill {
+      min-width: 125px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .ram-track {
+      flex: 1;
+      min-width: 44px;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-full);
+      overflow: hidden;
+    }
+
+    .ram-bar-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--grad-symphony);
+      border-radius: var(--radius-full);
+      transition: width 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* Refresh Icon Button */
+    .btn-refresh-icon {
+      width: var(--touch-min);
+      height: var(--touch-min);
+      min-width: var(--touch-min);
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-refresh-icon:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-refresh-icon:active {
+      transform: scale(0.92);
+    }
+
+    .btn-refresh-icon.rotating svg {
+      animation: spin 0.8s linear infinite;
+    }
+
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+
+    /* ==========================================================================
+       2. Unified Command & Dispatch Box
+       ========================================================================== */
+    .dispatch-card {
+      background: var(--bg-surface);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-xl);
+      padding: 16px;
+      margin-bottom: 22px;
+      box-shadow: 0 12px 36px rgba(0, 0, 0, 0.4);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .dispatch-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: var(--grad-symphony);
+      opacity: 0.9;
+    }
+
+    .dispatch-header {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      margin-bottom: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .dispatch-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .dispatch-title-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .dispatch-title-group h2 {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .badge-symphony {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      padding: 3px 8px;
+      border-radius: var(--radius-full);
+      background: rgba(99, 102, 241, 0.15);
+      border: 1px solid rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+    }
+
+    .agent-select-wrapper {
+      position: relative;
+      width: 100%;
+    }
+
+    @media (min-width: 640px) {
+      .agent-select-wrapper {
+        width: 320px;
+      }
+    }
+
+    .select-agent {
+      width: 100%;
+      min-height: var(--touch-min);
+      background: rgba(14, 16, 24, 0.95);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      color: #fff;
+      padding: 10px 14px 10px 38px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      outline: none;
+      appearance: none;
+      -webkit-appearance: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .select-agent:focus {
+      border-color: var(--accent-indigo);
+      box-shadow: 0 0 16px var(--accent-indigo-glow);
+    }
+
+    .select-chevron {
+      position: absolute;
+      left: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
+      color: var(--text-secondary);
+    }
+
+    /* Horizontal Quick Prompts Chips */
+    .quick-prompts-row {
+      display: flex;
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 8px;
+      margin-bottom: 12px;
+      scrollbar-width: none;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .quick-prompts-row::-webkit-scrollbar {
+      display: none;
+    }
+
+    .prompt-chip {
+      flex-shrink: 0;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 38px;
+      padding: 6px 13px;
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .prompt-chip:hover {
+      background: rgba(99, 102, 241, 0.14);
+      border-color: rgba(99, 102, 241, 0.4);
+      color: #fff;
+    }
+
+    .prompt-chip:active {
+      transform: scale(0.96);
+    }
+
+    /* Prompt Input */
+    .prompt-input-wrapper {
+      position: relative;
+      margin-bottom: 10px;
+    }
+
+    .prompt-textarea {
+      width: 100%;
+      min-height: 84px;
+      max-height: 220px;
+      background: rgba(12, 14, 22, 0.92);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      color: #fff;
+      padding: 12px 14px;
+      font-family: inherit;
+      font-size: 0.92rem;
+      line-height: 1.6;
+      resize: none;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .prompt-textarea:focus {
+      border-color: var(--accent-cyan);
+      box-shadow: 0 0 16px var(--accent-cyan-glow);
+    }
+
+    .prompt-textarea::placeholder {
+      color: var(--text-muted);
+    }
+
+    .dispatch-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .dispatch-tip {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      display: none;
+    }
+
+    @media (min-width: 640px) {
+      .dispatch-tip {
+        display: block;
+      }
+    }
+
+    .dispatch-btn-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+    }
+
+    @media (min-width: 640px) {
+      .dispatch-btn-group {
+        width: auto;
+      }
+    }
+
+    .btn-clear-input {
+      min-height: var(--touch-min);
+      padding: 0 14px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-clear-input:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .btn-send-dispatch {
+      flex: 1;
+      min-height: var(--touch-min);
+      padding: 0 20px;
+      border-radius: var(--radius-md);
+      background: var(--grad-action);
+      border: none;
+      color: #090a0f;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      box-shadow: 0 4px 18px var(--accent-cyan-glow);
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    @media (min-width: 640px) {
+      .btn-send-dispatch {
+        flex: initial;
+        min-width: 160px;
+      }
+    }
+
+    .btn-send-dispatch:hover:not(:disabled) {
+      filter: brightness(1.12);
+      transform: translateY(-1px);
+    }
+
+    .btn-send-dispatch:active:not(:disabled) {
+      transform: scale(0.97);
+    }
+
+    .btn-send-dispatch:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+      filter: grayscale(0.5);
+    }
+
+    /* Response Stream Panel */
+    .response-stream {
+      margin-top: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .response-card {
+      background: rgba(14, 17, 26, 0.88);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 14px 16px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+      animation: fadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .response-card-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .response-agent-badge {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      color: var(--accent-cyan);
+    }
+
+    .response-meta {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      font-family: var(--font-mono);
+    }
+
+    .response-user-prompt {
+      background: rgba(255, 255, 255, 0.03);
+      border-right: 3px solid var(--accent-indigo);
+      padding: 8px 12px;
+      border-radius: 4px var(--radius-sm) var(--radius-sm) 4px;
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+    }
+
+    .response-body {
+      font-size: 0.88rem;
+      line-height: 1.7;
+      color: #e2e8f0;
+      word-break: break-word;
+    }
+
+    .response-body h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--accent-cyan);
+      margin: 12px 0 6px;
+    }
+
+    .response-body h4 {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #cbd5e1;
+      margin: 10px 0 4px;
+    }
+
+    .response-body .inline-code {
+      font-family: var(--font-mono);
+      font-size: 0.82rem;
+      background: rgba(255, 255, 255, 0.08);
+      color: #7dd3fc;
+      padding: 2px 6px;
+      border-radius: 4px;
+      direction: ltr;
+      display: inline-block;
+    }
+
+    .code-block-wrap {
+      background: #06070b;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      margin: 10px 0;
+      overflow: hidden;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .code-block-header {
+      background: rgba(255, 255, 255, 0.04);
+      padding: 6px 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.72rem;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .btn-copy-code {
+      background: rgba(255, 255, 255, 0.06);
+      border: none;
+      color: var(--text-secondary);
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-size: 0.7rem;
+      cursor: pointer;
+    }
+
+    .btn-copy-code:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    .code-block-wrap pre {
+      padding: 10px 12px;
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: #e2e8f0;
+      overflow-x: auto;
+      white-space: pre;
+    }
+
+    .response-footer {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 12px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.04);
+    }
+
+    .btn-copy-response {
+      min-height: 36px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      color: var(--text-secondary);
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0 12px;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-copy-response:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .btn-copy-response:active {
+      transform: scale(0.96);
+    }
+
+    /* ==========================================================================
+       3. Controls & Filter Bar
+       ========================================================================== */
+    .section-header-bar {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    @media (min-width: 640px) {
+      .section-header-bar {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+      }
+    }
+
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .section-title h2 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .section-title-badge {
+      font-size: 0.72rem;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: var(--radius-full);
+      background: rgba(6, 182, 212, 0.12);
+      border: 1px solid rgba(6, 182, 212, 0.35);
+      color: #67e8f9;
+    }
+
+    .filter-search-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      width: 100%;
+    }
+
+    @media (min-width: 640px) {
+      .filter-search-group {
+        width: auto;
+      }
+    }
+
+    .filter-tabs {
+      display: flex;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 3px;
+    }
+
+    .filter-btn {
+      min-height: 32px;
+      padding: 0 12px;
+      background: transparent;
+      border: none;
+      border-radius: var(--radius-full);
+      color: var(--text-secondary);
+      font-family: inherit;
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .filter-btn.active {
+      background: var(--accent-indigo);
+      color: #fff;
+      box-shadow: 0 2px 10px var(--accent-indigo-glow);
+    }
+
+    .search-input-wrapper {
+      position: relative;
+      flex: 1;
+      min-width: 160px;
+    }
+
+    .search-input {
+      width: 100%;
+      height: 36px;
+      background: rgba(14, 16, 24, 0.92);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-full);
+      padding: 0 14px 0 32px;
+      color: #fff;
+      font-family: inherit;
+      font-size: 0.8rem;
+      outline: none;
+      transition: all 0.2s ease;
+    }
+
+    .search-input:focus {
+      border-color: var(--accent-indigo);
+    }
+
+    .search-icon {
+      position: absolute;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* ==========================================================================
+       4. Highly Visible Agent Cards & Interactive Actions
+       ========================================================================== */
+    .agents-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+    }
+
+    @media (min-width: 640px) {
+      .agents-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+      }
+    }
+
+    @media (min-width: 1024px) {
+      .agents-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+      }
+    }
+
+    .agent-card {
+      background: var(--bg-surface-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .agent-card:hover {
+      transform: translateY(-2px);
+      border-color: rgba(255, 255, 255, 0.18);
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+    }
+
+    /* Highly Visible Running Card Glow */
+    .agent-card.running {
+      border-color: rgba(16, 185, 129, 0.45);
+      box-shadow: 0 0 26px rgba(16, 185, 129, 0.16);
+    }
+
+    .agent-card.running::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: linear-gradient(90deg, #10b981, #06b6d4);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .card-agent-identity {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .card-agent-icon-box {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      flex-shrink: 0;
+    }
+
+    .card-agent-titles {
+      min-width: 0;
+    }
+
+    .card-agent-titles h3 {
+      font-size: 0.96rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .card-agent-titles .category-tag {
+      font-size: 0.72rem;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    /* Highly Visible Status Badges */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 11px;
+      border-radius: var(--radius-full);
+      font-size: 0.74rem;
+      font-weight: 700;
+      flex-shrink: 0;
+      letter-spacing: 0.2px;
+    }
+
+    .status-badge.running {
+      background: rgba(16, 185, 129, 0.18);
+      border: 1.5px solid #10b981;
+      color: #4ade80;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.3);
+    }
+
+    .status-badge.stopped {
+      background: rgba(255, 255, 255, 0.05);
+      border: 1.5px solid rgba(255, 255, 255, 0.16);
+      color: #94a3b8;
+    }
+
+    .status-beacon-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      position: relative;
+    }
+
+    .status-badge.running .status-beacon-dot {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+      animation: beacon-glow 1.8s infinite ease-in-out;
+    }
+
+    .status-badge.stopped .status-beacon-dot {
+      background: #64748b;
+    }
+
+    @keyframes beacon-glow {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+      }
+      50% {
+        transform: scale(1.15);
+        box-shadow: 0 0 0 5px rgba(16, 185, 129, 0);
+      }
+    }
+
+    .card-description {
+      font-size: 0.82rem;
+      color: #cbd5e1;
+      line-height: 1.5;
+      margin-bottom: 12px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .card-tech-pills {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-bottom: 12px;
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+    }
+
+    .tech-pill {
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: var(--radius-sm);
+      padding: 3px 8px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: var(--text-secondary);
+    }
+
+    .tech-pill.active-port {
+      border-color: rgba(6, 182, 212, 0.35);
+      color: #38bdf8;
+      font-weight: 600;
+    }
+
+    .tech-pill.active-pid {
+      border-color: rgba(16, 185, 129, 0.35);
+      color: #34d399;
+      font-weight: 600;
+    }
+
+    .card-log-preview {
+      background: rgba(6, 7, 12, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      margin-bottom: 14px;
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      direction: ltr;
+      text-align: right;
+    }
+
+    /* 2x2 Interactive Touch Grid (Min-Height 44px) */
+    .card-actions-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .btn-action {
+      min-height: var(--touch-min);
+      border-radius: var(--radius-md);
+      font-family: inherit;
+      font-size: 0.82rem;
+      font-weight: 700;
+      border: 1.5px solid transparent;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      touch-action: manipulation;
+    }
+
+    .btn-action:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    .btn-action:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    /* Start / Stop Prominent Interactive Styles */
+    .btn-start {
+      background: var(--grad-emerald-btn);
+      border-color: #10b981;
+      color: #34d399;
+      box-shadow: 0 2px 14px rgba(16, 185, 129, 0.2);
+    }
+
+    .btn-start:hover:not(:disabled) {
+      background: var(--accent-emerald);
+      color: #090a0f;
+      box-shadow: 0 4px 20px var(--accent-emerald-glow);
+    }
+
+    .btn-stop {
+      background: var(--grad-rose-btn);
+      border-color: #f43f5e;
+      color: #fb7185;
+      box-shadow: 0 2px 14px rgba(244, 63, 94, 0.2);
+    }
+
+    .btn-stop:hover:not(:disabled) {
+      background: var(--accent-rose);
+      color: #fff;
+      box-shadow: 0 4px 20px var(--accent-rose-glow);
+    }
+
+    .btn-restart {
+      background: rgba(99, 102, 241, 0.12);
+      border-color: rgba(99, 102, 241, 0.35);
+      color: #a5b4fc;
+    }
+
+    .btn-restart:hover:not(:disabled) {
+      background: var(--accent-indigo);
+      color: #fff;
+    }
+
+    .btn-logs {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: var(--border-subtle);
+      color: #cbd5e1;
+    }
+
+    .btn-logs:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .btn-chat {
+      background: rgba(6, 182, 212, 0.12);
+      border-color: rgba(6, 182, 212, 0.35);
+      color: #38bdf8;
+    }
+
+    .btn-chat:hover {
+      background: var(--accent-cyan);
+      color: #090a0f;
+    }
+
+    /* ==========================================================================
+       5. Logs Modal / Mobile Bottom-Sheet Drawer
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(4, 5, 8, 0.8);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      display: none;
+      z-index: 1000;
+      padding: 0;
+    }
+
+    .modal-overlay.active {
+      display: flex;
+    }
+
+    /* Bottom sheet on mobile */
+    @media (max-width: 768px) {
+      .modal-overlay {
+        align-items: flex-end;
+      }
+
+      .modal-card {
+        width: 100%;
+        max-width: 100%;
+        max-height: 88vh;
+        background: #0d0f18;
+        border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-bottom: none;
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.85);
+        animation: sheetUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .sheet-handle-bar {
+        display: block;
+        width: 44px;
+        height: 5px;
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: var(--radius-full);
+        margin: 10px auto 4px;
+      }
+    }
+
+    /* Centered modal on tablet & desktop */
+    @media (min-width: 769px) {
+      .modal-overlay {
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+
+      .modal-card {
+        width: 100%;
+        max-width: 860px;
+        max-height: 86vh;
+        background: #0d0f18;
+        border-radius: var(--radius-xl);
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        display: flex;
+        flex-direction: column;
+        box-shadow: 0 24px 60px rgba(0, 0, 0, 0.85);
+        animation: modalZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+
+      .sheet-handle-bar {
+        display: none;
+      }
+    }
+
+    @keyframes sheetUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+    @keyframes modalZoom { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+
+    .modal-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .modal-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .modal-agent-avatar {
+      font-size: 1.3rem;
+    }
+
+    .modal-title-wrap h3 {
+      font-size: 1rem;
+      font-weight: 700;
+      color: #fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .btn-modal-close {
+      width: var(--touch-min);
+      height: var(--touch-min);
+      min-width: var(--touch-min);
+      border-radius: var(--radius-full);
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-modal-close:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff;
+    }
+
+    .modal-content-body {
+      padding: 14px 18px;
+      overflow-y: auto;
+      flex: 1;
+    }
+
+    .terminal-viewer {
+      background: #05060a;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      color: #38bdf8;
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow-x: hidden;
+      overflow-y: auto;
+      min-height: 240px;
+      max-height: 52vh;
+      direction: ltr;
+      text-align: left;
+    }
+
+    .modal-foot {
+      padding: 12px 18px;
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      background: rgba(10, 12, 19, 0.6);
+    }
+
+    .auto-refresh-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .auto-refresh-toggle input[type="checkbox"] {
+      accent-color: var(--accent-indigo);
+      width: 16px;
+      height: 16px;
+    }
+
+    .modal-foot-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-modal-action {
+      min-height: 38px;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+      touch-action: manipulation;
+    }
+
+    .btn-modal-action.refresh {
+      background: rgba(255, 255, 255, 0.05);
+      color: #cbd5e1;
+    }
+
+    .btn-modal-action.clear {
+      background: rgba(244, 63, 94, 0.1);
+      border-color: rgba(244, 63, 94, 0.3);
+      color: #fb7185;
+    }
+
+    .btn-modal-action.copy {
+      background: rgba(6, 182, 212, 0.1);
+      border-color: rgba(6, 182, 212, 0.3);
+      color: #38bdf8;
+    }
+
+    /* ==========================================================================
+       6. Toast Notifications
+       ========================================================================== */
+    .toast-container {
+      position: fixed;
+      bottom: 20px;
+      left: 16px;
+      right: 16px;
+      z-index: 2000;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    @media (min-width: 640px) {
+      .toast-container {
+        left: 20px;
+        right: auto;
+        max-width: 380px;
+      }
+    }
+
+    .toast-bubble {
+      pointer-events: auto;
+      background: rgba(18, 21, 32, 0.95);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-right: 4px solid var(--accent-indigo);
+      color: #fff;
+      padding: 12px 16px;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      font-weight: 500;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6);
+      animation: toastSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .toast-bubble.success { border-right-color: var(--accent-emerald); }
+    .toast-bubble.error { border-right-color: var(--accent-rose); }
+    .toast-bubble.info { border-right-color: var(--accent-cyan); }
+
+    @keyframes toastSlide {
+      from { transform: translateY(20px); opacity: 0; }
+      to { transform: translateY(0); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       Sticky Compact Header
+       ========================================================================== -->
+  <header class="sticky-header">
+    <div class="header-inner">
+      <div class="brand-group">
+        <div class="brand-logo-box">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2L15 9L22 12L15 15L12 22L9 15L2 12L9 9L12 2Z" fill="url(#symphony_grad)"/>
+            <circle cx="12" cy="12" r="3" fill="#ffffff" fill-opacity="0.95"/>
+            <defs>
+              <linearGradient id="symphony_grad" x1="2" y1="2" x2="22" y2="22" gradientUnits="userSpaceOnUse">
+                <stop stop-color="#6366f1"/>
+                <stop offset="0.5" stop-color="#06b6d4"/>
+                <stop offset="1" stop-color="#10b981"/>
+              </linearGradient>
+            </defs>
+          </svg>
+        </div>
+        <div class="brand-text">
+          <h1>مركز إدارة الوكلاء الموحد</h1>
+          <p>
+            <span>Unified AI Agents Hub</span>
+            <span id="pwa-status-badge" class="pwa-active-pill" style="display:none;">📱 PWA</span>
+          </p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- PWA One-Tap Install Button -->
+        <button id="btn-pwa-install" class="btn-pwa-install" onclick="installPWA()" title="تثبيت التطبيق على الشاشة الرئيسية">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span>تثبيت كـ تطبيق</span>
+        </button>
+
+        <!-- Active Agents Pill -->
+        <div class="metric-pill" title="الوكلاء قيد التشغيل حالياً">
+          <span class="dot"></span>
+          <span>النشطة:</span>
+          <span class="val"><span id="stat-running">0</span> / <span id="stat-total">11</span></span>
+        </div>
+
+        <!-- RAM Usage Pill with Dynamic Progress Bar -->
+        <div class="metric-pill ram-metric-pill" title="استهلاك الذاكرة العشوائية">
+          <span>RAM:</span>
+          <span class="val" id="stat-mem-percent">0%</span>
+          <div class="ram-track">
+            <div id="stat-mem-bar" class="ram-bar-fill"></div>
+          </div>
+          <span id="stat-mem" style="display:none;"></span>
+        </div>
+
+        <!-- Quick Refresh Icon Button -->
+        <button id="btn-refresh" class="btn-refresh-icon" onclick="triggerManualRefresh()" aria-label="تحديث البيانات" title="تحديث فوري لجميع الوكلاء والبيانات">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ==========================================================================
+       Main Application Shell
+       ========================================================================== -->
+  <main class="app-shell">
+
+    <!-- Unified Command & Dispatch Box -->
+    <section class="dispatch-card" aria-label="صندوق الأوامر والمحادثة الموحد">
+      <div class="dispatch-header">
+        <div class="dispatch-title-group">
+          <h2>صندوق الأوامر والمحادثة الموحد</h2>
+          <span class="badge-symphony">Unified Dispatcher</span>
+        </div>
+
+        <div class="agent-select-wrapper">
+          <select id="agent-selector" class="select-agent" aria-label="اختر الوكيل لتوجيه الأمر إليه">
+            <!-- Dynamically populated -->
+          </select>
+          <div class="select-chevron">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="m6 9 6 6 6-6"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Prompts Row (Horizontal Scrollable Chips) -->
+      <div class="quick-prompts-row">
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('افحص أمان بيئة العمل والمهارات بحثاً عن أي ثغرات أو مخاطر أمنية.', 'skillspector')">
+          <span>🛡️</span> فحص أمني للمهارات
+        </button>
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('قم بمراجعة سياسات الحوكمة وتوزيع الأدوار بين الوكلاء للتحقق من سلامة العمليات.', 'hares-maestro')">
+          <span>👥</span> مراجعة فريق الحوكمة
+        </button>
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('ما هي حالة النظام والمهام المعلقة في الذاكرة حالياً؟', 'aboserag')">
+          <span>🤖</span> استفسار أبو سراج
+        </button>
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('اكتب دالة بايثون سريعة لفحص العمليات النشطة واستهلاك الذاكرة بدقة.', 'crush')">
+          <span>💻</span> برمجة سريعة (Crush)
+        </button>
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('راجع هيكلية التطبيقات الطرفية واقترح تحسينات لأدائها.', 'codex')">
+          <span>🧠</span> تحليل كودكس (Codex)
+        </button>
+        <button type="button" class="prompt-chip" onclick="setQuickPrompt('قم بتنفيذ فحص جاهزية الخادم المحلي واختبار المنفذ.', 'opencode')">
+          <span>🚀</span> أمر أوبن كود (OpenCode)
+        </button>
+      </div>
+
+      <!-- Input Textarea with Auto-Resize -->
+      <div class="prompt-input-wrapper">
+        <textarea 
+          id="prompt-input" 
+          class="prompt-textarea" 
+          placeholder="اكتب أمرك أو استفسارك هنا للوكيل المحدد... (Ctrl + Enter للإرسال السريع)" 
+          rows="2"
+          onkeydown="handleKeyDown(event)"></textarea>
+      </div>
+
+      <!-- Actions Bar -->
+      <div class="dispatch-action-bar">
+        <span class="dispatch-tip">💡 يتم توجيه الأمر مباشرة للوكيل مع التقاط المخرجات والزمن المنقضي.</span>
+
+        <div class="dispatch-btn-group">
+          <button type="button" class="btn-clear-input" onclick="clearPromptInput()">
+            <span>مسح</span>
+          </button>
+
+          <button id="btn-send-prompt" type="button" class="btn-send-dispatch" onclick="sendPrompt()">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="22" y1="2" x2="11" y2="13"/>
+              <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+            </svg>
+            <span>إرسال الأمر</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Live Dispatched Responses Stream -->
+      <div id="response-area" class="response-stream">
+        <!-- Dynamic Response Bubbles inserted here -->
+      </div>
+    </section>
+
+    <!-- ==========================================================================
+         Section: Filter & Search Controls Bar
+         ========================================================================== -->
+    <div class="section-header-bar">
+      <div class="section-title">
+        <h2>الوكلاء والأنظمة المكتشفة</h2>
+        <span id="agents-count-badge" class="section-title-badge">11 وكيل</span>
+      </div>
+
+      <div class="filter-search-group">
+        <div class="filter-tabs">
+          <button type="button" class="filter-btn active" data-filter="all" onclick="applyFilter('all')">
+            الكل (<span id="count-all">11</span>)
+          </button>
+          <button type="button" class="filter-btn" data-filter="running" onclick="applyFilter('running')">
+            النشطة 🟢 (<span id="count-running">0</span>)
+          </button>
+          <button type="button" class="filter-btn" data-filter="stopped" onclick="applyFilter('stopped')">
+            المتوقفة ⚪ (<span id="count-stopped">11</span>)
+          </button>
+        </div>
+
+        <div class="search-input-wrapper">
+          <input 
+            type="text" 
+            id="agent-search-input" 
+            class="search-input" 
+            placeholder="بحث عن وكيل أو منفذ..." 
+            oninput="handleSearch(this.value)"
+            aria-label="بحث في قائمة الوكلاء">
+          <span class="search-icon">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <line x1="21" y1="2" x2="16.65" y2="16.65"/>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Responsive Agents Grid -->
+    <div id="agents-grid" class="agents-grid">
+      <!-- Dynamic Agent Cards populated via JS -->
+    </div>
+
+  </main>
+
+  <!-- ==========================================================================
+       Logs Modal / Bottom-Sheet Drawer
+       ========================================================================== -->
+  <div id="logs-modal" class="modal-overlay" onclick="closeLogsModal(event)" role="dialog" aria-modal="true">
+    <div class="modal-card" onclick="event.stopPropagation()">
+      <div class="sheet-handle-bar"></div>
+
+      <div class="modal-head">
+        <div class="modal-title-wrap">
+          <span id="modal-agent-icon" class="modal-agent-avatar">📜</span>
+          <h3 id="modal-agent-title">سجل التشغيل المباشر</h3>
+        </div>
+        <button type="button" class="btn-modal-close" onclick="closeLogsModal()" aria-label="إغلاق السجل">
+          &times;
+        </button>
+      </div>
+
+      <div class="modal-content-body">
+        <pre id="log-content" class="terminal-viewer">جاري قراءة السجلات الحية...</pre>
+      </div>
+
+      <div class="modal-foot">
+        <label class="auto-refresh-toggle">
+          <input type="checkbox" id="auto-refresh-logs" checked onchange="toggleAutoLogRefresh()">
+          <span>تحديث تلقائي (كل 2 ثانية)</span>
+        </label>
+
+        <div class="modal-foot-actions">
+          <button type="button" class="btn-modal-action refresh" onclick="fetchModalLogs()">
+            🔄 تحديث
+          </button>
+          <button type="button" class="btn-modal-action copy" onclick="copyCurrentModalLogs()">
+            📋 نسخ السجل
+          </button>
+          <button type="button" class="btn-modal-action clear" onclick="clearModalLogs()">
+            🗑️ مسح
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- ==========================================================================
+       JavaScript Logic (100% Backend Compatible + PWA Standalone Support)
+       ========================================================================== -->
+  <script>
+    let agentsData = [];
+    let currentFilter = 'all';
+    let searchQuery = '';
+    let currentLogAgentId = null;
+    let logPollInterval = null;
+    let deferredInstallPrompt = null;
+
+    // Initialization
+    async function init() {
+      setupPWA();
+      setupAutoResizeTextarea();
+      await refreshAll();
+      setInterval(refreshAll, 3500); // Live poll every 3.5s
+    }
+
+    // PWA Setup & Service Worker Registration
+    function setupPWA() {
+      // Check if launched as Standalone PWA
+      const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+      if (isStandalone) {
+        const badge = document.getElementById('pwa-status-badge');
+        if (badge) badge.style.display = 'inline-flex';
+      }
+
+      // Listen for beforeinstallprompt event (Android / Chromium)
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredInstallPrompt = e;
+        const installBtn = document.getElementById('btn-pwa-install');
+        if (installBtn && !isStandalone) {
+          installBtn.style.display = 'inline-flex';
+        }
+      });
+
+      // Listen for successful install
+      window.addEventListener('appinstalled', () => {
+        deferredInstallPrompt = null;
+        const installBtn = document.getElementById('btn-pwa-install');
+        if (installBtn) installBtn.style.display = 'none';
+        const badge = document.getElementById('pwa-status-badge');
+        if (badge) badge.style.display = 'inline-flex';
+        showToast("🎉 تم تثبيت AI Agents Hub بنجاح كتطبيق مستقل على هاتفك!", "success");
+      });
+
+      // Register Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js')
+            .then(reg => {
+              console.log('PWA ServiceWorker registered successfully:', reg.scope);
+            })
+            .catch(err => {
+              console.warn('PWA ServiceWorker registration notice:', err);
+            });
+        });
+      }
+    }
+
+    // Trigger PWA Installation
+    async function installPWA() {
+      if (!deferredInstallPrompt) {
+        showToast("📱 لتثبيت التطبيق على جهازك: افتح قائمة المتصفح واختر 'إضافة إلى الشاشة الرئيسية'", "info");
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      const choiceResult = await deferredInstallPrompt.userChoice;
+      if (choiceResult.outcome === 'accepted') {
+        showToast("جاري التثبيت على شاشة هاتفك...", "success");
+      }
+      deferredInstallPrompt = null;
+    }
+
+    // Refresh All Data
+    async function refreshAll() {
+      const refreshBtn = document.getElementById('btn-refresh');
+      try {
+        const [agentsRes, statsRes] = await Promise.all([
+          fetch('/api/agents'),
+          fetch('/api/system/stats')
+        ]);
+
+        if (agentsRes.ok) {
+          agentsData = await agentsRes.json();
+          renderAgents();
+          updateAgentSelector();
+        }
+
+        if (statsRes.ok) {
+          const stats = await statsRes.json();
+          renderStats(stats);
+        }
+      } catch (err) {
+        console.warn("Refresh cycle warning:", err);
+      } finally {
+        if (refreshBtn) refreshBtn.classList.remove('rotating');
+      }
+    }
+
+    function triggerManualRefresh() {
+      const refreshBtn = document.getElementById('btn-refresh');
+      if (refreshBtn) refreshBtn.classList.add('rotating');
+      showToast("جاري تحديث بيانات النظام والوكلاء...", "info");
+      refreshAll();
+    }
+
+    // Render System Stats in Sticky Header
+    function renderStats(stats) {
+      const total = stats.total_agents || agentsData.length;
+      const running = stats.running_agents ?? 0;
+      const stopped = total - running;
+      const memPercent = stats.mem_percent || 0;
+
+      // Header pills
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-running').textContent = running;
+      document.getElementById('stat-mem-percent').textContent = `${memPercent}%`;
+      
+      const bar = document.getElementById('stat-mem-bar');
+      bar.style.width = `${Math.min(100, Math.max(0, memPercent))}%`;
+      if (memPercent > 85) {
+        bar.style.background = 'linear-gradient(135deg, #f59e0b, #f43f5e)';
+      } else if (memPercent > 70) {
+        bar.style.background = 'linear-gradient(135deg, #06b6d4, #f59e0b)';
+      } else {
+        bar.style.background = 'var(--grad-symphony)';
+      }
+
+      document.getElementById('stat-mem').textContent = `${stats.mem_used_mb || 0} / ${stats.mem_total_mb || 0} MB`;
+
+      // Filter badges
+      document.getElementById('agents-count-badge').textContent = `${total} وكيل`;
+      document.getElementById('count-all').textContent = total;
+      document.getElementById('count-running').textContent = running;
+      document.getElementById('count-stopped').textContent = stopped;
+    }
+
+    // Render Highly Visible Agent Cards Grid
+    function renderAgents() {
+      const grid = document.getElementById('agents-grid');
+      const q = searchQuery.toLowerCase().trim();
+
+      const filtered = agentsData.filter(ag => {
+        const matchesFilter = 
+          currentFilter === 'all' ? true :
+          currentFilter === 'running' ? ag.status === 'running' :
+          ag.status !== 'running';
+
+        const matchesSearch = !q ? true :
+          (ag.name_ar && ag.name_ar.toLowerCase().includes(q)) ||
+          (ag.name && ag.name.toLowerCase().includes(q)) ||
+          (ag.category_ar && ag.category_ar.toLowerCase().includes(q)) ||
+          (ag.description_ar && ag.description_ar.toLowerCase().includes(q)) ||
+          (ag.port && String(ag.port).includes(q)) ||
+          (ag.id && ag.id.toLowerCase().includes(q));
+
+        return matchesFilter && matchesSearch;
+      });
+
+      grid.innerHTML = '';
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `
+          <div style="grid-column: 1 / -1; text-align: center; padding: 40px 16px; background: var(--bg-surface); border-radius: var(--radius-lg); border: 1px dashed var(--border-subtle); color: var(--text-muted);">
+            <div style="font-size: 2rem; margin-bottom: 8px;">🔍</div>
+            <p style="font-size: 0.95rem; font-weight: 600; color: #fff;">لم يتم العثور على وكلاء مطابقين</p>
+            <p style="font-size: 0.8rem; margin-top: 4px;">جرب تغيير معيار التصفية أو مسح عبارة البحث</p>
+          </div>
+        `;
+        return;
+      }
+
+      filtered.forEach(ag => {
+        const isRunning = ag.status === 'running';
+        const card = document.createElement('div');
+        card.className = `agent-card ${isRunning ? 'running' : ''}`;
+        card.id = `card-agent-${ag.id}`;
+
+        const portBadge = ag.port 
+          ? `<span class="tech-pill ${ag.port_open ? 'active-port' : ''}" title="رقم المنفذ المحلي">
+               PORT: ${ag.port} ${ag.port_open ? '🟢 مفتوح' : '⚪'}
+             </span>` 
+          : '';
+
+        const pidBadge = ag.pid 
+          ? `<span class="tech-pill active-pid" title="معرف العملية في النظام">
+               PID: ${ag.pid}
+             </span>` 
+          : '';
+
+        const lastLogSnippet = ag.last_log 
+          ? escapeHtml(ag.last_log) 
+          : 'لا توجد أنشطة مسجلة بعد';
+
+        card.innerHTML = `
+          <div>
+            <div class="card-head">
+              <div class="card-agent-identity">
+                <div class="card-agent-icon-box">${ag.icon || '🤖'}</div>
+                <div class="card-agent-titles">
+                  <h3>${escapeHtml(ag.name_ar || ag.name)}</h3>
+                  <div class="category-tag">${escapeHtml(ag.category_ar || ag.name)}</div>
+                </div>
+              </div>
+              <span class="status-badge ${isRunning ? 'running' : 'stopped'}">
+                <span class="status-beacon-dot"></span>
+                <span>${isRunning ? 'يعمل الآن' : 'متوقف'}</span>
+              </span>
+            </div>
+
+            <p class="card-description">${escapeHtml(ag.description_ar || '')}</p>
+
+            <div class="card-tech-pills">
+              ${portBadge}
+              ${pidBadge}
+            </div>
+
+            <div class="card-log-preview" title="${lastLogSnippet}">
+              ${lastLogSnippet}
+            </div>
+          </div>
+
+          <div class="card-actions-grid">
+            ${isRunning 
+              ? `<button type="button" class="btn-action btn-stop" onclick="stopAgent('${ag.id}')">
+                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                   <span>إيقاف</span>
+                 </button>`
+              : `<button type="button" class="btn-action btn-start" onclick="startAgent('${ag.id}')">
+                   <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                   <span>تشغيل</span>
+                 </button>`
+            }
+
+            <button type="button" class="btn-action btn-restart" onclick="restartAgent('${ag.id}')" title="إعادة تشغيل الوكيل">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+                <path d="M3 3v5h5"/>
+                <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+                <path d="M16 21h5v-5"/>
+              </svg>
+              <span>إعادة تشغيل</span>
+            </button>
+
+            <button type="button" class="btn-action btn-logs" onclick="openLogsModal('${ag.id}', '${escapeHtml(ag.name_ar || ag.name)}', '${ag.icon || '📜'}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="16" y1="13" x2="8" y2="13"/>
+                <line x1="16" y1="17" x2="8" y2="17"/>
+              </svg>
+              <span>السجل</span>
+            </button>
+
+            <button type="button" class="btn-action btn-chat" onclick="selectAgentForChat('${ag.id}')">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+              <span>محادثة</span>
+            </button>
+          </div>
+        `;
+
+        grid.appendChild(card);
+      });
+    }
+
+    // Populate Agent Selector Dropdown
+    function updateAgentSelector() {
+      const selector = document.getElementById('agent-selector');
+      const cur = selector.value;
+      selector.innerHTML = '';
+
+      agentsData.forEach(ag => {
+        const opt = document.createElement('option');
+        opt.value = ag.id;
+        const statusMark = ag.status === 'running' ? '🟢' : '⚪';
+        opt.textContent = `${statusMark} ${ag.name_ar} (${ag.name})`;
+        selector.appendChild(opt);
+      });
+
+      if (cur && agentsData.some(a => a.id === cur)) {
+        selector.value = cur;
+      }
+    }
+
+    // Select Agent for Chat and smooth scroll
+    function selectAgentForChat(agentId) {
+      const selector = document.getElementById('agent-selector');
+      selector.value = agentId;
+      const input = document.getElementById('prompt-input');
+      input.focus();
+      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const targetAgent = agentsData.find(a => a.id === agentId);
+      const name = targetAgent ? targetAgent.name_ar : agentId;
+      showToast(`تم توجيه المحادثة إلى: ${name}`, "info");
+    }
+
+    // Filter and Search handlers
+    function applyFilter(filterType) {
+      currentFilter = filterType;
+      document.querySelectorAll('.filter-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-filter') === filterType);
+      });
+      renderAgents();
+    }
+
+    function handleSearch(val) {
+      searchQuery = val;
+      renderAgents();
+    }
+
+    // Quick Prompts Chips handler
+    function setQuickPrompt(text, agentId) {
+      const input = document.getElementById('prompt-input');
+      input.value = text;
+      adjustTextareaHeight(input);
+      if (agentId) {
+        const selector = document.getElementById('agent-selector');
+        selector.value = agentId;
+      }
+      input.focus();
+    }
+
+    function clearPromptInput() {
+      const input = document.getElementById('prompt-input');
+      input.value = '';
+      adjustTextareaHeight(input);
+      input.focus();
+    }
+
+    function setupAutoResizeTextarea() {
+      const textarea = document.getElementById('prompt-input');
+      if (!textarea) return;
+      textarea.addEventListener('input', () => adjustTextareaHeight(textarea));
+    }
+
+    function adjustTextareaHeight(el) {
+      el.style.height = 'auto';
+      el.style.height = Math.min(el.scrollHeight, 220) + 'px';
+    }
+
+    function handleKeyDown(event) {
+      if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+        event.preventDefault();
+        sendPrompt();
+      }
+    }
+
+    // Backend Execution: Start Agent
+    async function startAgent(agentId) {
+      showToast("جاري بدء تشغيل الوكيل...", "info");
+      try {
+        const res = await fetch(`/api/agents/${agentId}/start`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`✅ ${data.message || 'تم تشغيل الوكيل بنجاح'}`, "success");
+        } else {
+          showToast(`❌ ${data.detail || 'تعذر تشغيل الوكيل'}`, "error");
+        }
+      } catch (e) {
+        showToast(`❌ خطأ في الاتصال: ${e.message}`, "error");
+      } finally {
+        await refreshAll();
+      }
+    }
+
+    // Backend Execution: Stop Agent
+    async function stopAgent(agentId) {
+      showToast("جاري إيقاف الوكيل...", "info");
+      try {
+        const res = await fetch(`/api/agents/${agentId}/stop`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`⏹️ ${data.message || 'تم إيقاف الوكيل'}`, "info");
+        } else {
+          showToast(`❌ ${data.detail || 'تعذر إيقاف الوكيل'}`, "error");
+        }
+      } catch (e) {
+        showToast(`❌ خطأ في الاتصال: ${e.message}`, "error");
+      } finally {
+        await refreshAll();
+      }
+    }
+
+    // Backend Execution: Restart Agent
+    async function restartAgent(agentId) {
+      showToast("جاري إعادة تشغيل الوكيل...", "info");
+      try {
+        await fetch(`/api/agents/${agentId}/stop`, { method: 'POST' });
+        await new Promise(r => setTimeout(r, 600));
+        const res = await fetch(`/api/agents/${agentId}/start`, { method: 'POST' });
+        const data = await res.json();
+        if (res.ok) {
+          showToast(`🔄 تم إعادة تشغيل الوكيل بنجاح`, "success");
+        } else {
+          showToast(`❌ ${data.detail || 'فشل تشغيل الوكيل مجدداً'}`, "error");
+        }
+      } catch (e) {
+        showToast(`❌ خطأ أثناء إعادة التشغيل: ${e.message}`, "error");
+      } finally {
+        await refreshAll();
+      }
+    }
+
+    // Backend Execution: Send Command / Prompt
+    async function sendPrompt() {
+      const selector = document.getElementById('agent-selector');
+      const agentId = selector.value;
+      const promptInput = document.getElementById('prompt-input');
+      const prompt = promptInput.value.trim();
+
+      if (!prompt) {
+        showToast("يرجى كتابة نص الأمر أو الاستفسار أولاً.", "error");
+        promptInput.focus();
+        return;
+      }
+
+      const sendBtn = document.getElementById('btn-send-prompt');
+      sendBtn.disabled = true;
+      sendBtn.innerHTML = `
+        <svg class="btn-refresh-icon rotating" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.19"/></svg>
+        <span>جاري المعالجة...</span>
+      `;
+
+      const responseArea = document.getElementById('response-area');
+      const bubble = document.createElement('div');
+      bubble.className = 'response-card';
+      const bubbleId = 'bubble-' + Date.now();
+      bubble.id = bubbleId;
+
+      const targetAgent = agentsData.find(a => a.id === agentId) || { name_ar: agentId, icon: '🤖' };
+
+      bubble.innerHTML = `
+        <div class="response-card-top">
+          <div class="response-agent-badge">
+            <span>${targetAgent.icon || '🤖'}</span>
+            <span>${escapeHtml(targetAgent.name_ar)}</span>
+          </div>
+          <div class="response-meta">
+            <span id="${bubbleId}-time">${new Date().toLocaleTimeString('ar-EG')}</span>
+          </div>
+        </div>
+        <div class="response-user-prompt">
+          <strong>الطلب:</strong> ${escapeHtml(prompt)}
+        </div>
+        <div class="response-body" id="${bubbleId}-body">
+          <em style="color: var(--accent-cyan); display: inline-flex; align-items: center; gap: 6px;">
+            <span>جاري معالجة الطلب والتقاط استجابة الوكيل...</span>
+          </em>
+        </div>
+        <div class="response-footer">
+          <button type="button" class="btn-copy-response" onclick="copyBubbleText('${bubbleId}-body')">
+            📋 نسخ الرد
+          </button>
+        </div>
+      `;
+
+      responseArea.prepend(bubble);
+
+      try {
+        const res = await fetch(`/api/agents/${agentId}/prompt`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ prompt })
+        });
+        const data = await res.json();
+        const bodyEl = document.getElementById(`${bubbleId}-body`);
+
+        if (res.ok) {
+          bodyEl.innerHTML = formatMarkdown(data.response || 'تم تنفيذ العملية بنجاح');
+          if (data.execution_time_seconds) {
+            const timeTag = document.createElement('div');
+            timeTag.style = "font-size: 0.72rem; color: var(--text-muted); margin-top: 10px; font-family: var(--font-mono);";
+            timeTag.textContent = `⚡ استغرق التنفيذ: ${data.execution_time_seconds} ثانية`;
+            bodyEl.appendChild(timeTag);
+          }
+          showToast("✅ تم استلام رد الوكيل بنجاح", "success");
+        } else {
+          bodyEl.innerHTML = `<span style="color: var(--accent-rose);">❌ ${escapeHtml(data.detail || 'حدث خطأ أثناء معالجة الطلب')}</span>`;
+          showToast("❌ فشل معالجة الطلب", "error");
+        }
+      } catch (e) {
+        const bodyEl = document.getElementById(`${bubbleId}-body`);
+        bodyEl.innerHTML = `<span style="color: var(--accent-rose);">❌ خطأ في الاتصال: ${escapeHtml(e.message)}</span>`;
+        showToast("❌ تعذر الاتصال بالخادم", "error");
+      } finally {
+        sendBtn.disabled = false;
+        sendBtn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"/>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+          </svg>
+          <span>إرسال الأمر</span>
+        `;
+        promptInput.value = '';
+        adjustTextareaHeight(promptInput);
+      }
+    }
+
+    // Modal Logs Management
+    function openLogsModal(agentId, agentName, icon) {
+      currentLogAgentId = agentId;
+      document.getElementById('modal-agent-icon').textContent = icon || '📜';
+      document.getElementById('modal-agent-title').textContent = `سجل تشغيل: ${agentName}`;
+      document.getElementById('logs-modal').classList.add('active');
+      fetchModalLogs();
+      startLogPolling();
+    }
+
+    function closeLogsModal(event) {
+      if (event && event.target !== document.getElementById('logs-modal') && !event.target.classList.contains('btn-modal-close')) {
+        return;
+      }
+      document.getElementById('logs-modal').classList.remove('active');
+      stopLogPolling();
+      currentLogAgentId = null;
+    }
+
+    async function fetchModalLogs() {
+      if (!currentLogAgentId) return;
+      try {
+        const res = await fetch(`/api/agents/${currentLogAgentId}/logs?lines=200`);
+        const data = await res.json();
+        const viewer = document.getElementById('log-content');
+        viewer.textContent = data.content || 'لا توجد سجلات.';
+        viewer.scrollTop = viewer.scrollHeight;
+      } catch (e) {
+        document.getElementById('log-content').textContent = `تعذر قراءة السجلات: ${e.message}`;
+      }
+    }
+
+    async function clearModalLogs() {
+      if (!currentLogAgentId) return;
+      if (!confirm('هل أنت متأكد من تفريغ سجل هذا الوكيل؟')) return;
+      try {
+        await fetch(`/api/agents/${currentLogAgentId}/logs`, { method: 'DELETE' });
+        await fetchModalLogs();
+        showToast("تم تفريغ السجل بنجاح.", "success");
+      } catch (e) {
+        showToast("فشل تفريغ السجل.", "error");
+      }
+    }
+
+    function copyCurrentModalLogs() {
+      const viewer = document.getElementById('log-content');
+      if (!viewer || !viewer.textContent) return;
+      navigator.clipboard.writeText(viewer.textContent).then(() => {
+        showToast("📋 تم نسخ كامل السجل للحافظة", "success");
+      });
+    }
+
+    function startLogPolling() {
+      stopLogPolling();
+      if (document.getElementById('auto-refresh-logs').checked) {
+        logPollInterval = setInterval(fetchModalLogs, 2000);
+      }
+    }
+
+    function stopLogPolling() {
+      if (logPollInterval) {
+        clearInterval(logPollInterval);
+        logPollInterval = null;
+      }
+    }
+
+    function toggleAutoLogRefresh() {
+      if (document.getElementById('auto-refresh-logs').checked) {
+        startLogPolling();
+      } else {
+        stopLogPolling();
+      }
+    }
+
+    // Copy Utilities
+    function copyBubbleText(elId) {
+      const el = document.getElementById(elId);
+      if (!el) return;
+      navigator.clipboard.writeText(el.innerText).then(() => {
+        showToast("📋 تم نسخ الرد للحافظة", "success");
+      });
+    }
+
+    function copyCodeBlock(btn) {
+      const codeEl = btn.closest('.code-block-wrap').querySelector('code');
+      if (!codeEl) return;
+      navigator.clipboard.writeText(codeEl.innerText).then(() => {
+        const oldText = btn.textContent;
+        btn.textContent = "تم النسخ ✅";
+        setTimeout(() => btn.textContent = oldText, 2000);
+      });
+    }
+
+    // Toast Notifications
+    function showToast(msg, type = "info") {
+      const container = document.getElementById('toast-container');
+      const toast = document.createElement('div');
+      toast.className = `toast-bubble ${type}`;
+      toast.textContent = msg;
+      container.appendChild(toast);
+
+      setTimeout(() => {
+        toast.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateY(10px)';
+        setTimeout(() => toast.remove(), 350);
+      }, 3500);
+    }
+
+    // HTML Escaping & Markdown Parser
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function formatMarkdown(text) {
+      if (!text) return '';
+      let escaped = escapeHtml(text);
+
+      // Fenced Code blocks
+      escaped = escaped.replace(/```(?:([a-zA-Z0-9_-]+)\n)?([\s\S]*?)```/g, (match, lang, code) => {
+        const l = lang || 'code';
+        return `
+          <div class="code-block-wrap">
+            <div class="code-block-header">
+              <span>${l}</span>
+              <button type="button" class="btn-copy-code" onclick="copyCodeBlock(this)">نسخ الكود</button>
+            </div>
+            <pre><code>${code.trim()}</code></pre>
+          </div>
+        `;
+      });
+
+      // Headers
+      escaped = escaped.replace(/^### (.*$)/gim, '<h3>$1</h3>');
+      escaped = escaped.replace(/^#### (.*$)/gim, '<h4>$1</h4>');
+
+      // Bold & Italic
+      escaped = escaped.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+      escaped = escaped.replace(/\*(.*?)\*/g, '<em>$1</em>');
+
+      // Inline code
+      escaped = escaped.replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+
+      // Blockquotes
+      escaped = escaped.replace(/^>\s?(.*$)/gim, '<div class="response-user-prompt">$1</div>');
+
+      // Bullet lists
+      escaped = escaped.replace(/^- (.*$)/gim, '<div style="display:flex; gap:6px; margin:3px 0;"><span>•</span><span>$1</span></div>');
+
+      // Numbered lists
+      escaped = escaped.replace(/^(\d+)\.\s(.*$)/gim, '<div style="display:flex; gap:6px; margin:3px 0;"><span style="color:var(--accent-cyan); font-family:var(--font-mono);">$1.</span><span>$2</span></div>');
+
+      // Line breaks
+      escaped = escaped.replace(/\n\n/g, '<div style="height:8px;"></div>');
+
+      return escaped;
+    }
+
+    // Bootstrap
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
