@@ -7,6 +7,7 @@ import socket
 import re
 import shutil
 import subprocess
+import shlex
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
@@ -29,11 +30,15 @@ AGENTS_FILE = BASE_DIR / "agents.json"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # CORS Allowed Origins
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
-if allowed_origins_env == "*":
-    origins = ["*"]
-else:
-    origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+allowed_origins_env = os.getenv(
+    "ALLOWED_ORIGINS",
+    "http://localhost:8000,http://127.0.0.1:8000",
+)
+origins = [origin.strip() for origin in allowed_origins_env.split(",") if origin.strip()]
+if not origins or "*" in origins:
+    raise RuntimeError(
+        "ALLOWED_ORIGINS must contain explicit trusted origins; wildcard CORS is forbidden."
+    )
 
 # Lifespan for 24/7 Resilience & Startup Reconciliation
 @asynccontextmanager
@@ -487,8 +492,8 @@ def api_start_agent(agent_id: str, authorization: Optional[str] = Header(None)):
 
         try:
             proc = subprocess.Popen(
-                cmd,
-                shell=True,
+                shlex.split(cmd),
+                shell=False,
                 cwd=cwd,
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
