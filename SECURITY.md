@@ -7,6 +7,8 @@
 - The `dev-bypass` token is rejected.
 - Token comparison uses constant-time `hmac.compare_digest`.
 - The in-memory rate limiter is protected by a thread lock.
+- CORS no longer defaults to wildcard origins; explicit trusted origins are required.
+- Agent commands are tokenized with `shlex.split` and launched without a shell.
 - Unit tests cover missing, incorrect, bypass, and valid bearer tokens.
 
 ## Important remaining blockers
