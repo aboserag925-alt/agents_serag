@@ -22,12 +22,12 @@ SENSITIVE_ACTION_TYPES = {
 }
 
 SECRET_PATTERNS = [
-    (re.compile(r"(api[_-]?key|token|secret|password|passwd|auth[_-]?key)(\\s*[:=]\\s*)(['\\\"][^'\\\"]+['\\\"]|[^\\s,;]+)", re.IGNORECASE), r"\\1\\2***REDACTED_SECRET***"),
-    (re.compile(r"(AIza[0-9A-Za-z\\-_]{35})"), "***REDACTED_GOOGLE_KEY***"),
+    (re.compile(r"(api[_-]?key|token|secret|password|passwd|auth[_-]?key)(\s*[:=]\s*)(['\"][^'\"]+['\"]|[^\s,;]+)", re.IGNORECASE), r"\1\2***REDACTED_SECRET***"),
+    (re.compile(r"(AIza[0-9A-Za-z\-_]{35})"), "***REDACTED_GOOGLE_KEY***"),
     (re.compile(r"(ghp_[0-9a-zA-Z]{36}|github_pat_[0-9a-zA-Z_]{82})"), "***REDACTED_GITHUB_TOKEN***"),
     (re.compile(r"(sk-[a-zA-Z0-9]{20,})"), "***REDACTED_OPENAI_KEY***"),
-    (re.compile(r"(Bearer\\s+)[A-Za-z0-9_\\-\\.]{15,}", re.IGNORECASE), r"\\1***REDACTED_BEARER***"),
-    (re.compile(r"(postgres(ql)?://[^:]+:)([^@]+)(@)", re.IGNORECASE), r"\\1***REDACTED_DB_PWD***\\4"),
+    (re.compile(r"(Bearer\s+)[A-Za-z0-9_\-\.]{15,}", re.IGNORECASE), r"\1***REDACTED_BEARER***"),
+    (re.compile(r"(postgres(ql)?://[^:]+:)([^@]+)(@)", re.IGNORECASE), r"\1***REDACTED_DB_PWD***\4"),
 ]
 
 
@@ -71,9 +71,9 @@ def is_sensitive_action(action_type: str, details: Optional[Dict[str, Any]] = No
 
     command = details.get("command", "") or details.get("prompt", "")
     if isinstance(command, str):
-        if re.search(r"\\b(rm\\s+-rf|dd\\s+if=|mkfs|chmod\\s+-R\\s+777|git\\s+push.*main)\\b", command, re.IGNORECASE):
+        if re.search(r"\b(rm\s+-rf|dd\s+if=|mkfs|chmod\s+-R\s+777|git\s+push.*main)\b", command, re.IGNORECASE):
             return True, "CRITICAL", "أمر تنفيذي عالي الخطورة يتضمن حذفاً واسعاً أو تعديل صلاحيات جذرية"
-        if re.search(r"\\b(drop\\s+table|delete\\s+from|truncate)\\b", command, re.IGNORECASE):
+        if re.search(r"\b(drop\s+table|delete\s+from|truncate)\b", command, re.IGNORECASE):
             return True, "HIGH", "عملية حذف أو تفريغ لقاعدة البيانات"
 
     return False, "LOW", "عملية روتينية مسموح بها"
