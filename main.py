@@ -5,33 +5,98 @@ import time
 import signal
 import socket
 import re
+import shutil
 import subprocess
 import asyncio
 from pathlib import Path
 from typing import Optional, Dict, Any, List
+from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, WebSocket, WebSocketDisconnect, Header
 from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+
+import task_store
+import security_gate
+import secrets_manager
+import maestro_engine
 
 BASE_DIR = Path(__file__).resolve().parent
 LOGS_DIR = BASE_DIR / "logs"
 AGENTS_FILE = BASE_DIR / "agents.json"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
-app = FastAPI(title="Unified Agents Hub", description="مركز إدارة وتشغيل الوكلاء الموحد", version="1.0.0")
+# CORS Allowed Origins
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins_env == "*":
+    origins = ["*"]
+else:
+    origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+
+# Lifespan for 24/7 Resilience & Startup Reconciliation
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # 1. Startup Recovery: Reconcile orphan tasks after any unexpected restart
+    reconciliation = task_store.reconcile_orphan_tasks()
+    print(f"[24/7 BOOT RECOVERY] Tasks Reconciled: {reconciliation}")
+    maestro_engine.MaestroOrchestrator.register_agent_states()
+    task_store.log_audit("SERVER_STARTUP", "System", details={"reconciliation": reconciliation})
+    yield
+    # 2. Graceful Shutdown
+    print("[SERVER SHUTDOWN] Cleaning up resources gracefully...")
+    task_store.log_audit("SERVER_SHUTDOWN", "System")
+
+app = FastAPI(
+    title="Autonomous Agents Hub 24/7",
+    description="منصة الوكلاء الذكية المستقلة الموحدة — مدارة بواسطة Maestro على مدار الساعة",
+    version="2.0.0",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 managed_processes: Dict[str, Dict[str, Any]] = {}
+
+# Active WebSocket connections
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: Dict[str, Any]):
+        for connection in list(self.active_connections):
+            try:
+                await connection.send_json(message)
+            except Exception:
+                self.disconnect(connection)
+
+ws_manager = ConnectionManager()
+
+# Hook Maestro broadcast events into WebSocket manager
+def handle_maestro_event(event: Dict[str, Any]):
+    try:
+        loop = asyncio.get_event_loop()
+        if loop.is_running():
+            asyncio.create_task(ws_manager.broadcast(event))
+    except Exception:
+        pass
+
+maestro_engine.subscribe_events(handle_maestro_event)
 
 def clean_ansi(text: str) -> str:
     ansi_regex = re.compile(r'\x1B(?:[@-Z\\-_]|\[[0-?]*[ -/]*[@-~])')
@@ -113,41 +178,49 @@ def get_last_log_snippet(agent_id: str, max_chars: int = 150) -> str:
         lines = [line.strip() for line in content.splitlines() if line.strip()]
         if lines:
             last = lines[-1]
-            return clean_ansi(last[:max_chars])
+            return security_gate.mask_secrets(clean_ansi(last[:max_chars]))
         return "لا توجد أسطر مسجلة."
     except Exception:
         return "تعذر قراءة السجل."
 
 def get_system_metrics() -> Dict[str, Any]:
-    # Memory info
     mem_total = 0
     mem_available = 0
     try:
         with open("/proc/meminfo", "r") as f:
             for line in f:
                 if line.startswith("MemTotal:"):
-                    mem_total = int(line.split()[1]) // 1024 # MB
+                    mem_total = int(line.split()[1]) // 1024
                 elif line.startswith("MemAvailable:"):
-                    mem_available = int(line.split()[1]) // 1024 # MB
+                    mem_available = int(line.split()[1]) // 1024
     except Exception:
         pass
     mem_used = mem_total - mem_available if mem_total else 0
     mem_percent = round((mem_used / mem_total * 100), 1) if mem_total else 0
 
-    # Uptime
     uptime_sec = 0
     try:
         with open("/proc/uptime", "r") as f:
             uptime_sec = int(float(f.readline().split()[0]))
     except Exception:
         pass
-
     uptime_hours = round(uptime_sec / 3600, 1)
 
-    # Process count
     proc_count = 0
     try:
         proc_count = len([p for p in os.listdir("/proc") if p.isdigit()])
+    except Exception:
+        pass
+
+    # Disk usage
+    disk_total_mb = 0
+    disk_used_mb = 0
+    disk_percent = 0.0
+    try:
+        tot, used, free = shutil.disk_usage(str(BASE_DIR))
+        disk_total_mb = tot // (1024 * 1024)
+        disk_used_mb = used // (1024 * 1024)
+        disk_percent = round((used / tot * 100), 1) if tot else 0.0
     except Exception:
         pass
 
@@ -158,8 +231,193 @@ def get_system_metrics() -> Dict[str, Any]:
         "mem_percent": mem_percent,
         "uptime_hours": uptime_hours,
         "proc_count": proc_count,
+        "disk_total_mb": disk_total_mb,
+        "disk_used_mb": disk_used_mb,
+        "disk_percent": disk_percent,
         "python_version": sys.version.split()[0],
     }
+
+# ==============================================================================
+# 24/7 Health & Readiness Probes
+# ==============================================================================
+
+@app.get("/health")
+def liveness_probe():
+    return {
+        "status": "healthy",
+        "service": "agents-hub",
+        "timestamp": time.time(),
+        "uptime": get_system_metrics()["uptime_hours"]
+    }
+
+@app.get("/ready")
+def readiness_probe():
+    try:
+        # Check SQLite DB connectivity
+        task_store.get_connection().execute("SELECT 1;").fetchone()
+        db_ready = True
+    except Exception:
+        db_ready = False
+
+    secrets_status = secrets_manager.get_secrets_status()
+
+    is_ready = db_ready
+    return {
+        "ready": is_ready,
+        "database": "connected" if db_ready else "error",
+        "secrets_vault": secrets_status["vault_active"],
+        "infisical_configured": secrets_status["infisical_configured"]
+    }
+
+# ==============================================================================
+# WebSocket Real-Time Events Stream
+# ==============================================================================
+
+@app.websocket("/ws/events")
+async def websocket_endpoint(websocket: WebSocket):
+    await ws_manager.connect(websocket)
+    try:
+        # Send initial sync payload
+        await websocket.send_json({
+            "event_type": "INITIAL_SYNC",
+            "data": {
+                "system": get_system_metrics(),
+                "agent_states": task_store.get_all_agent_states(),
+                "pending_approvals_count": len(task_store.list_pending_approvals("PENDING"))
+            },
+            "timestamp": time.time()
+        })
+        while True:
+            # Keep-alive ping/pong
+            data = await websocket.receive_text()
+            if data == "ping":
+                await websocket.send_text("pong")
+    except WebSocketDisconnect:
+        ws_manager.disconnect(websocket)
+    except Exception:
+        ws_manager.disconnect(websocket)
+
+# ==============================================================================
+# Maestro Tasks & Approvals API
+# ==============================================================================
+
+class TaskSubmitRequest(BaseModel):
+    description: str
+    category: str = "general"
+    priority: int = 10
+    input_data: Optional[Dict[str, Any]] = None
+    idempotency_key: Optional[str] = None
+
+class ApprovalResolveRequest(BaseModel):
+    decision: str  # APPROVED or REJECTED
+    reviewer: str = "Admin"
+    reason: Optional[str] = None
+
+@app.post("/api/tasks")
+async def api_submit_task(req: TaskSubmitRequest, authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+    
+    desc = req.description.strip()
+    if not desc:
+        raise HTTPException(status_code=400, detail="يجب تحديد وصف للمهمة")
+    
+    task = await maestro_engine.MaestroOrchestrator.submit_task(
+        description=desc,
+        category=req.category,
+        priority=req.priority,
+        input_data=req.input_data,
+        idempotency_key=req.idempotency_key
+    )
+    return {"ok": True, "task": task}
+
+@app.get("/api/tasks")
+def api_list_tasks(status: Optional[str] = None, agent: Optional[str] = None, limit: int = 50, offset: int = 0):
+    tasks = task_store.list_tasks(status=status, assigned_agent=agent, limit=limit, offset=offset)
+    return {"ok": True, "count": len(tasks), "tasks": tasks}
+
+@app.get("/api/tasks/{task_id}")
+def api_get_task_detail(task_id: str):
+    task = task_store.get_task(task_id)
+    if not task:
+        raise HTTPException(status_code=404, detail="المهمة غير موجودة")
+    events = task_store.get_task_events(task_id)
+    task["events"] = events
+    return {"ok": True, "task": task}
+
+@app.get("/api/approvals")
+def api_list_approvals(status: str = "PENDING"):
+    approvals = task_store.list_pending_approvals(status=status)
+    return {"ok": True, "approvals": approvals}
+
+@app.post("/api/approvals/{approval_id}/resolve")
+async def api_resolve_approval(approval_id: str, req: ApprovalResolveRequest, authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+
+    decision = req.decision.upper()
+    if decision not in ("APPROVED", "REJECTED"):
+        raise HTTPException(status_code=400, detail="القرار يجب أن يكون APPROVED أو REJECTED")
+
+    success = task_store.resolve_approval(approval_id, decision, req.reviewer, req.reason)
+    if not success:
+        raise HTTPException(status_code=404, detail="طلب الموافقة غير موجود أو تمت معالجته بالفعل")
+
+    # Find associated task and notify Maestro
+    approvals = task_store.list_pending_approvals(decision)
+    target_appr = next((a for a in approvals if a["approval_id"] == approval_id), None)
+    if target_appr:
+        await maestro_engine.MaestroOrchestrator.resume_blocked_task(target_appr["task_id"], approval_id, decision)
+
+    return {"ok": True, "message": f"تم تسجيل القرار ({decision}) بنجاح"}
+
+@app.get("/api/audit")
+def api_get_audit_logs(limit: int = 100):
+    logs = task_store.list_audit_logs(limit=limit)
+    return {"ok": True, "logs": logs}
+
+@app.get("/api/secrets/status")
+def api_secrets_status():
+    status = secrets_manager.get_secrets_status()
+    return {"ok": True, "secrets_status": status}
+
+@app.post("/api/system/emergency-stop")
+def api_emergency_stop(authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+
+    # 1. Stop all tasks in DB
+    result = task_store.emergency_stop_all()
+
+    # 2. Terminate all active managed subprocesses
+    killed_processes = 0
+    for agent_id, info in list(managed_processes.items()):
+        pid = info.get("pid")
+        if pid:
+            try:
+                pgid = os.getpgid(pid)
+                os.killpg(pgid, signal.SIGKILL)
+            except Exception:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except Exception:
+                    pass
+            killed_processes += 1
+    managed_processes.clear()
+
+    # Broadcast emergency stop
+    maestro_engine.broadcast_event("EMERGENCY_STOP_TRIGGERED", {"halted_tasks": result["halted_tasks"]})
+
+    return {
+        "ok": True,
+        "message": "تم تفعيل الإيقاف الطارئ (Emergency Stop) لكافة الوكلاء والمهام فوراً.",
+        "halted_tasks": result["halted_tasks"],
+        "killed_processes": killed_processes
+    }
+
+# ==============================================================================
+# Existing APIs (Fully Preserved for Backward Compatibility)
+# ==============================================================================
 
 class PromptRequest(BaseModel):
     prompt: str
@@ -177,6 +435,7 @@ def api_system_stats():
     metrics = get_system_metrics()
     metrics["total_agents"] = len(agents)
     metrics["running_agents"] = running_count
+    metrics["six_agents_active"] = len(task_store.get_all_agent_states())
     return metrics
 
 @app.get("/api/agents")
@@ -200,7 +459,10 @@ def api_get_agents():
     return enriched
 
 @app.post("/api/agents/{agent_id}/start")
-def api_start_agent(agent_id: str):
+def api_start_agent(agent_id: str, authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+
     agents = {ag["id"]: ag for ag in load_agents()}
     if agent_id not in agents:
         raise HTTPException(status_code=404, detail="الوكيل غير موجود")
@@ -224,7 +486,6 @@ def api_start_agent(agent_id: str):
         log_f.flush()
 
         try:
-            # Spawn process in new process group
             proc = subprocess.Popen(
                 cmd,
                 shell=True,
@@ -241,13 +502,17 @@ def api_start_agent(agent_id: str):
                 "started_at": timestamp
             }
             pidfile_path.write_text(str(pid))
+            task_store.log_audit("AGENT_START", "User", target=agent_id, details={"pid": pid, "cmd": cmd})
             return {"ok": True, "message": f"تم تشغيل الوكيل بنجاح (PID: {pid})", "pid": pid}
         except Exception as e:
             log_f.write(f"\n[خطأ أثناء التشغيل]: {str(e)}\n")
             raise HTTPException(status_code=500, detail=f"فشل تشغيل الوكيل: {str(e)}")
 
 @app.post("/api/agents/{agent_id}/stop")
-def api_stop_agent(agent_id: str):
+def api_stop_agent(agent_id: str, authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+
     agents = {ag["id"]: ag for ag in load_agents()}
     if agent_id not in agents:
         raise HTTPException(status_code=404, detail="الوكيل غير موجود")
@@ -255,7 +520,6 @@ def api_stop_agent(agent_id: str):
     ag = agents[agent_id]
     pid = find_running_pid(ag.get("pattern"), agent_id)
     if not pid:
-        # Also clean up pidfile if any
         (LOGS_DIR / f"{agent_id}.pid").unlink(missing_ok=True)
         return {"ok": True, "message": "الوكيل متوقف بالفعل."}
 
@@ -265,20 +529,17 @@ def api_stop_agent(agent_id: str):
         with open(logfile_path, "a", encoding="utf-8") as log_f:
             log_f.write(f"\n--- [إيقاف التشغيل] {timestamp} | إنهاء العملية (PID: {pid}) ---\n")
 
-        # Try SIGTERM to process group
         try:
             pgid = os.getpgid(pid)
             os.killpg(pgid, signal.SIGTERM)
         except Exception:
             os.kill(pid, signal.SIGTERM)
 
-        # Wait a moment
         for _ in range(10):
             time.sleep(0.1)
             if not os.path.exists(f"/proc/{pid}"):
                 break
         else:
-            # Force kill if still alive
             try:
                 pgid = os.getpgid(pid)
                 os.killpg(pgid, signal.SIGKILL)
@@ -290,6 +551,7 @@ def api_stop_agent(agent_id: str):
 
         managed_processes.pop(agent_id, None)
         (LOGS_DIR / f"{agent_id}.pid").unlink(missing_ok=True)
+        task_store.log_audit("AGENT_STOP", "User", target=agent_id, details={"pid": pid})
         return {"ok": True, "message": f"تم إيقاف الوكيل بنجاح (PID: {pid})"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"حدث خطأ أثناء إيقاف العملية: {str(e)}")
@@ -308,7 +570,7 @@ def api_get_logs(agent_id: str, lines: int = 150):
         text = logfile.read_text(encoding="utf-8", errors="replace")
         all_lines = text.splitlines()
         slice_lines = all_lines[-lines:] if len(all_lines) > lines else all_lines
-        cleaned = clean_ansi("\n".join(slice_lines))
+        cleaned = security_gate.mask_secrets(clean_ansi("\n".join(slice_lines)))
         return {
             "ok": True,
             "agent_id": agent_id,
@@ -319,10 +581,14 @@ def api_get_logs(agent_id: str, lines: int = 150):
         raise HTTPException(status_code=500, detail=f"تعذر قراءة السجل: {str(e)}")
 
 @app.delete("/api/agents/{agent_id}/logs")
-def api_clear_logs(agent_id: str):
+def api_clear_logs(agent_id: str, authorization: Optional[str] = Header(None)):
+    if not security_gate.verify_token(authorization):
+        raise HTTPException(status_code=401, detail="غير مصرح: مفتاح المصادقة غير صالح")
+
     logfile = LOGS_DIR / f"{agent_id}.log"
     try:
         logfile.write_text(f"--- تم تفريغ السجل في {time.strftime('%Y-%m-%d %H:%M:%S')} ---\n", encoding="utf-8")
+        task_store.log_audit("CLEAR_LOGS", "User", target=agent_id)
         return {"ok": True, "message": "تم مسح السجل بنجاح"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"فشل مسح السجل: {str(e)}")
@@ -342,7 +608,6 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
 
     # Specialized handlers
     if agent_id == "skillspector":
-        # Run security inspection analysis on the prompt/target
         risks = []
         dangerous_patterns = [
             (r"\b(eval|exec|compile|os\.system|subprocess\.|__import__|open\s*\()\b", "استدعاء دوال تشغيل أوامر نظام مباشرة أو تفسير أكواد ديناميكية"),
@@ -383,32 +648,24 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
         }
 
     elif agent_id == "hares-maestro":
-        # Ahl Al-Athar multi-agent governance pipeline evaluation
+        # Dispatch to the real Maestro Orchestrator pipeline!
+        task = await maestro_engine.MaestroOrchestrator.submit_task(
+            description=prompt,
+            category="governance",
+            priority=5
+        )
         elapsed = round(time.time() - start_time, 2)
-        eval_report = [
-            f"### 🛡️ مراجعة حارس مايسترو — فريق حوكمة وإشراف الوكلاء",
-            f"**الطلب المقدم:** \"{prompt[:100]}{'...' if len(prompt)>100 else ''}\"",
-            "",
-            "#### 👥 تقييم فريق الوكلاء المتخصصين:",
-            "1. **Content Agent (وكيل المحتوى):** تم فحص سياق النص والمحتوى لضمان الالتزام بسياسات النشر واللغة العربية السليمة. 🟢 (مقبول)",
-            "2. **Security Agent (وكيل الأمان):** التحقق من نطاق الصلاحيات المطلوب. لا توجد عمليات غير مصرح بها. 🟢 (معتمد)",
-            "3. **Developer Agent (وكيل التطوير):** جاهزية البنية البرمجية لتنفيذ الأمر وفق أفضل الممارسات. 🟢 (جاهز)",
-            "4. **UX Agent (وكيل تجربة المستخدم):** التحقق من سهولة التفاعل والتكامل مع الواجهة الأمامية. 🟢 (متوافق)",
-            "5. **Verifier Agent (وكيل التحقق النهائي):** اعتماد المهمة وإدراجها ضمن سجل التدقيق (Audit Log). ✅ (تمت الموافقة)",
-            "",
-            "📌 **قرار الحوكمة:** المهمة مصرح بتنفيذها تحت رقابة النظام."
-        ]
         return {
             "ok": True,
             "agent_id": agent_id,
             "agent_name": ag["name_ar"],
-            "response": "\n".join(eval_report),
+            "task_id": task["task_id"],
+            "response": f"### 🛡️ حارس مايسترو — تم استلام الطلب وتوجيهه إلى محرك المنصة المستقل\n\n- **معرّف المهمة:** `{task['task_id']}`\n- **الحالة:** `جارِ التنفيذ والتوزيع على الوكلاء المتخصصين`\n- **المرحلة:** استلام وتحليل الهدف بواسطة Product Agent والتحقق الأمني.",
             "execution_time_seconds": elapsed,
             "status": "success"
         }
 
     elif agent_id == "aboserag":
-        # Check if aboserag server is running on port 3000
         if is_port_listening(3000):
             try:
                 import urllib.request
@@ -428,9 +685,8 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                         "execution_time_seconds": round(time.time() - start_time, 2),
                         "status": "success"
                     }
-            except Exception as e:
+            except Exception:
                 pass
-        # Fallback direct response
         return {
             "ok": True,
             "agent_id": agent_id,
@@ -441,7 +697,6 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
         }
 
     elif agent_id == "crush":
-        # Run crush non-interactively
         try:
             cmd = ["crush", "run", prompt]
             proc = await asyncio.create_subprocess_exec(
@@ -450,8 +705,8 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
-            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
-            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            output = security_gate.mask_secrets(clean_ansi(stdout.decode("utf-8", "replace").strip()))
+            err = security_gate.mask_secrets(clean_ansi(stderr.decode("utf-8", "replace").strip()))
             res = output or err or "تم تنفيذ الأمر بواسطة Charm Crush دون مخرجات."
             return {
                 "ok": True,
@@ -466,7 +721,7 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 "ok": False,
                 "agent_id": agent_id,
                 "agent_name": ag["name_ar"],
-                "response": "⚠️ استغرق وكيل Crush وقتاً طويلاً للإجابة (تجاوز مهلة 30 ثانية). يمكنك تشغيل الوكيل كخادم خلفي.",
+                "response": "⚠️ استغرق وكيل Crush وقتاً طويلاً للإجابة (تجاوز مهلة 30 ثانية).",
                 "execution_time_seconds": 30.0,
                 "status": "timeout"
             }
@@ -481,7 +736,6 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
             }
 
     elif agent_id == "opencode":
-        # Run opencode non-interactively
         try:
             cmd = ["opencode", "run", prompt]
             proc = await asyncio.create_subprocess_exec(
@@ -490,8 +744,8 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=35.0)
-            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
-            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            output = security_gate.mask_secrets(clean_ansi(stdout.decode("utf-8", "replace").strip()))
+            err = security_gate.mask_secrets(clean_ansi(stderr.decode("utf-8", "replace").strip()))
             res = output or err or "تم تنفيذ الأمر بواسطة OpenCode."
             return {
                 "ok": True,
@@ -506,7 +760,7 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 "ok": False,
                 "agent_id": agent_id,
                 "agent_name": ag["name_ar"],
-                "response": "⚠️ استغرق OpenCode وقتاً طويلاً. إذا كان بحاجة لخادم، شغّل OpenCode serve أولاً.",
+                "response": "⚠️ استغرق OpenCode وقتاً طويلاً.",
                 "execution_time_seconds": 35.0,
                 "status": "timeout"
             }
@@ -521,7 +775,6 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
             }
 
     elif agent_id == "codex":
-        # Run codex exec
         try:
             cmd = ["codex", "exec", prompt]
             proc = await asyncio.create_subprocess_exec(
@@ -530,8 +783,8 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=30.0)
-            output = clean_ansi(stdout.decode("utf-8", "replace").strip())
-            err = clean_ansi(stderr.decode("utf-8", "replace").strip())
+            output = security_gate.mask_secrets(clean_ansi(stdout.decode("utf-8", "replace").strip()))
+            err = security_gate.mask_secrets(clean_ansi(stderr.decode("utf-8", "replace").strip()))
             res = output or err or "تم تنفيذ المهمة بواسطة Codex."
             return {
                 "ok": True,
@@ -546,7 +799,7 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
                 "ok": False,
                 "agent_id": agent_id,
                 "agent_name": ag["name_ar"],
-                "response": "⚠️ استغرق Codex وقتاً أطول من المعتاد. يرجى مراجعة إعدادات تسجيل الدخول والشبكة.",
+                "response": "⚠️ استغرق Codex وقتاً أطول من المعتاد.",
                 "execution_time_seconds": 30.0,
                 "status": "timeout"
             }
@@ -561,7 +814,6 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
             }
 
     else:
-        # Generic agent prompt response
         elapsed = round(time.time() - start_time, 2)
         is_running = bool(find_running_pid(ag.get("pattern"), agent_id) or is_port_listening(ag.get("port")))
         status_text = "🟢 قيد التشغيل حالياً" if is_running else "🔴 متوقف حالياً"

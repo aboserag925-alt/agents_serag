@@ -1,0 +1,25 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Database files
+*.db
+*.db-wal
+*.db-shm
+
+# Process and runtime logs
+logs/
+*.pid
+server.pid
+
+# Python byte-code
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Backups and archives
+*.tar.gz
+*.zip
+*.bak
