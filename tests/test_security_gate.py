@@ -1,3 +1,4 @@
+import os
 import unittest
 from unittest.mock import patch
 
@@ -8,6 +9,12 @@ class VerifyTokenTests(unittest.TestCase):
     def test_rejects_missing_server_token(self):
         with patch.object(security_gate, "AUTH_TOKEN", ""):
             self.assertFalse(security_gate.verify_token("Bearer anything"))
+
+    def test_reads_token_loaded_after_module_import(self):
+        with patch.object(security_gate, "AUTH_TOKEN", ""), patch.dict(
+            os.environ, {"HUB_AUTH_TOKEN": "loaded-from-env-file"}
+        ):
+            self.assertTrue(security_gate.verify_token("Bearer loaded-from-env-file"))
 
     def test_rejects_missing_request_token(self):
         with patch.object(security_gate, "AUTH_TOKEN", "configured-secret"):
