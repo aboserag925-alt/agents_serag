@@ -129,7 +129,9 @@ def verify_token(token: Optional[str]) -> bool:
     and development bypass strings are all rejected.
     The caller must pass the Authorization header value.
     """
-    configured_token = AUTH_TOKEN
+    # Resolve the environment value at call time as well as import time.
+    # secrets_manager may load a local .env after this module is imported.
+    configured_token = AUTH_TOKEN or os.getenv("HUB_AUTH_TOKEN", "")
     if not configured_token or not token:
         return False
 
