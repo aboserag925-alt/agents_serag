@@ -5,6 +5,9 @@ import json
 import asyncio
 import random
 import logging
+import shutil
+import subprocess
+import re
 from typing import Dict, Any, Optional, List, Tuple, Callable
 from pathlib import Path
 
@@ -77,10 +80,17 @@ class DeveloperAgent:
         prompt = task["description"]
         input_data = task.get("input_data", {})
         target_file = input_data.get("target_file")
+        executable = shutil.which("opencode")
 
-        # Concurrency & file lock protection
+        if not executable:
+            return {
+                "agent": cls.role,
+                "status": "EXECUTOR_UNAVAILABLE",
+                "error": "OpenCode CLI is not installed; no implementation was executed."
+            }
+
         if target_file:
-            locked = task_store.acquire_resource_lock(target_file, task["task_id"], ttl_seconds=60)
+            locked = task_store.acquire_resource_lock(target_file, task["task_id"], ttl_seconds=180)
             if not locked:
                 return {
                     "agent": cls.role,
@@ -89,14 +99,34 @@ class DeveloperAgent:
                 }
 
         try:
-            # Simulate or trigger backend tools (opencode, codex, etc.)
-            await asyncio.sleep(0.3)
+            proc = await asyncio.create_subprocess_exec(
+                executable, "run", prompt,
+                cwd=str(Path(__file__).resolve().parent),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180.0)
+            output = (stdout or b"").decode("utf-8", "replace").strip()
+            error = (stderr or b"").decode("utf-8", "replace").strip()
+            combined = security_gate.mask_secrets("\\n".join(x for x in (output, error) if x))
+            if proc.returncode != 0 or not combined:
+                return {
+                    "agent": cls.role,
+                    "status": "EXECUTION_FAILED",
+                    "returncode": proc.returncode,
+                    "output": combined[-12000:]
+                }
             return {
                 "agent": cls.role,
-                "status": "IMPLEMENTED",
-                "output": f"تمت معالجة وتنفيذ الأكواد المطلوبة للمهمة بنجاح وفق المعايير الهندسية.",
+                "status": "EXECUTED",
+                "returncode": proc.returncode,
+                "output": combined[-12000:],
                 "artifacts": [target_file] if target_file else []
             }
+        except asyncio.TimeoutError:
+            return {"agent": cls.role, "status": "EXECUTION_TIMEOUT", "error": "OpenCode exceeded 180 seconds."}
+        except Exception as exc:
+            return {"agent": cls.role, "status": "EXECUTION_FAILED", "error": security_gate.mask_secrets(str(exc))}
         finally:
             if target_file:
                 task_store.release_resource_lock(target_file, task["task_id"])
@@ -143,16 +173,38 @@ class TestAgent:
 
     @classmethod
     async def run_tests(cls, task: Dict[str, Any], dev_output: Dict[str, Any]) -> Dict[str, Any]:
-        await asyncio.sleep(0.2)
-        # Execute automated assertion check
-        return {
-            "agent": cls.role,
-            "status": "TESTS_PASSED",
-            "tests_run": 3,
-            "failures": 0,
-            "coverage_percent": 100.0,
-            "details": "تم إجراء فحوصات سلامة المنطق البرمجي، ولا توجد انحدارات أو استثناءات غير معالجة."
-        }
+        tests_dir = Path(__file__).resolve().parent / "tests"
+        if not tests_dir.is_dir():
+            return {"agent": cls.role, "status": "TESTS_NOT_RUN", "tests_run": 0,
+                    "failures": None, "details": "No tests/ directory exists; no test success is claimed."}
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                sys.executable, "-m", "unittest", "discover",
+                "-s", str(tests_dir), "-p", "test_*.py", "-v",
+                cwd=str(Path(__file__).resolve().parent),
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE
+            )
+            stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120.0)
+            raw = "\\n".join(x.decode("utf-8", "replace") for x in (stdout, stderr) if x)
+            safe_output = security_gate.mask_secrets(raw)[-12000:]
+            match = re.search(r"Ran (\\d+) tests?", raw)
+            tests_run = int(match.group(1)) if match else 0
+            passed = proc.returncode == 0 and tests_run > 0 and "OK" in raw
+            return {
+                "agent": cls.role,
+                "status": "TESTS_PASSED" if passed else "TESTS_FAILED" if tests_run else "TESTS_NOT_RUN",
+                "tests_run": tests_run,
+                "failures": 0 if passed else None,
+                "returncode": proc.returncode,
+                "details": safe_output
+            }
+        except asyncio.TimeoutError:
+            return {"agent": cls.role, "status": "TESTS_TIMEOUT", "tests_run": 0,
+                    "failures": None, "details": "Test suite exceeded 120 seconds."}
+        except Exception as exc:
+            return {"agent": cls.role, "status": "TESTS_ERROR", "tests_run": 0,
+                    "failures": None, "details": security_gate.mask_secrets(str(exc))}
 
 class UXAgent:
     name = "UX Agent"
@@ -164,11 +216,8 @@ class UXAgent:
         await asyncio.sleep(0.1)
         return {
             "agent": cls.role,
-            "status": "UI_APPROVED",
-            "rtl_support": True,
-            "design_system": "Wix Symphony Compliant",
-            "mobile_viewport": "Optimized",
-            "recommendation": "التصميم متطابق مع هوية النظام ويدعم التباين والحركات السلسة."
+            "status": "UX_NOT_EVALUATED",
+            "details": "No browser or visual inspection tool is configured; UX approval is not claimed."
         }
 
 class VerifierAgent:
@@ -185,8 +234,12 @@ class VerifierAgent:
         # 4. Tests passed
         product_ok = "product" in results_bundle
         security_ok = results_bundle.get("security", {}).get("approved", False)
-        dev_ok = results_bundle.get("developer", {}).get("status") == "IMPLEMENTED"
-        test_ok = results_bundle.get("test", {}).get("status") == "TESTS_PASSED"
+        dev_ok = results_bundle.get("developer", {}).get("status") == "EXECUTED"
+        test_evidence = results_bundle.get("test", {})
+        test_ok = (test_evidence.get("status") == "TESTS_PASSED"
+                   and isinstance(test_evidence.get("tests_run"), int)
+                   and test_evidence.get("tests_run", 0) > 0
+                   and test_evidence.get("returncode") == 0)
 
         all_passed = product_ok and security_ok and dev_ok and test_ok
 
@@ -196,7 +249,8 @@ class VerifierAgent:
             "evidence": {
                 "product_analysis": product_ok,
                 "security_clearance": security_ok,
-                "developer_artifacts": dev_ok,
+                "developer_execution": dev_ok,
+                "tests_executed": test_evidence.get("tests_run", 0),
                 "test_pass_evidence": test_ok
             },
             "timestamp": time.time()
