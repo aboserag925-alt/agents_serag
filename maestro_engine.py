@@ -108,7 +108,7 @@ class DeveloperAgent:
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=180.0)
             output = (stdout or b"").decode("utf-8", "replace").strip()
             error = (stderr or b"").decode("utf-8", "replace").strip()
-            combined = security_gate.mask_secrets("\\n".join(x for x in (output, error) if x))
+            combined = security_gate.mask_secrets("\n".join(x for x in (output, error) if x))
             if proc.returncode != 0 or not combined:
                 return {
                     "agent": cls.role,
@@ -186,9 +186,9 @@ class TestAgent:
                 stderr=asyncio.subprocess.PIPE
             )
             stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=120.0)
-            raw = "\\n".join(x.decode("utf-8", "replace") for x in (stdout, stderr) if x)
+            raw = "\n".join(x.decode("utf-8", "replace") for x in (stdout, stderr) if x)
             safe_output = security_gate.mask_secrets(raw)[-12000:]
-            match = re.search(r"Ran (\\d+) tests?", raw)
+            match = re.search(r"Ran (\d+) tests?", raw)
             tests_run = int(match.group(1)) if match else 0
             passed = proc.returncode == 0 and tests_run > 0 and "OK" in raw
             return {
