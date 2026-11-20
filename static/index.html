@@ -1714,6 +1714,25 @@
        JavaScript Logic (100% Backend Compatible + PWA Standalone Support)
        ========================================================================== -->
   <script>
+    // Keep the admin token in memory only; never persist it in browser storage.
+    const hubOriginalFetch = window.fetch.bind(window);
+    let hubAuthToken = null;
+    window.fetch = async (input, init = {}) => {
+      const requestUrl = typeof input === "string" ? input : input.url;
+      if (requestUrl.startsWith("/api/")) {
+        if (hubAuthToken === null) {
+          hubAuthToken = (window.prompt("أدخل رمز HUB_AUTH_TOKEN للوصول إلى لوحة الإدارة:") || "").trim();
+        }
+        const inheritedHeaders = input instanceof Request ? input.headers : undefined;
+        const headers = new Headers(init.headers || inheritedHeaders || {});
+        if (hubAuthToken) headers.set("Authorization", `Bearer ${hubAuthToken}`);
+        init = { ...init, headers };
+        const response = await hubOriginalFetch(input, init);
+        if (response.status === 401) hubAuthToken = null;
+        return response;
+      }
+      return hubOriginalFetch(input, init);
+    };
     let agentsData = [];
     let currentFilter = 'all';
     let searchQuery = '';
