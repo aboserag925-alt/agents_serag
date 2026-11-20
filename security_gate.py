@@ -1,5 +1,6 @@
 import os
 import re
+import hmac
 import time
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List
@@ -7,8 +8,8 @@ import task_store
 
 BASE_DIR = Path(__file__).resolve().parent
 
-# Configurable Auth Token
-AUTH_TOKEN = os.getenv("HUB_AUTH_TOKEN", "hub_secure_token_autonomous_2026")
+# Authentication fails closed: no built-in token and no development bypass.
+AUTH_TOKEN = os.getenv("HUB_AUTH_TOKEN")
 
 # Sensitive Actions requiring explicit approval
 SENSITIVE_ACTION_TYPES = {
@@ -115,8 +116,15 @@ def is_rate_limited(client_ip: str, max_calls: int = 120, period_sec: float = 60
     return False
 
 def verify_token(token: Optional[str]) -> bool:
-    if not token:
-        # Development default mode
-        return True
-    clean_token = token.replace("Bearer ", "").strip()
-    return clean_token == AUTH_TOKEN or clean_token == "dev-bypass"
+    """Validate a configured bearer token; reject missing configuration and all bypasses."""
+    expected = AUTH_TOKEN or os.getenv("HUB_AUTH_TOKEN")
+    if not isinstance(expected, str) or not expected.strip():
+        return False
+    if not isinstance(token, str) or not token.strip():
+        return False
+    clean_token = token.strip()
+    if clean_token.lower().startswith("bearer "):
+        clean_token = clean_token[7:].strip()
+    if not clean_token:
+        return False
+    return hmac.compare_digest(clean_token, expected.strip())
