@@ -288,7 +288,14 @@ def readiness_probe():
 async def websocket_endpoint(websocket: WebSocket):
     await ws_manager.connect(websocket)
     try:
-        # Send initial sync payload
+        # Authenticate before sending system state or approval counts.
+        auth_message = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
+        if not auth_message.startswith("auth:") or not security_gate.verify_token(auth_message[5:]):
+            await websocket.close(code=4401, reason="Authentication required")
+            ws_manager.disconnect(websocket)
+            return
+
+        # Send initial sync payload only after successful authentication.
         await websocket.send_json({
             "event_type": "INITIAL_SYNC",
             "data": {
@@ -303,7 +310,7 @@ async def websocket_endpoint(websocket: WebSocket):
             data = await websocket.receive_text()
             if data == "ping":
                 await websocket.send_text("pong")
-    except WebSocketDisconnect:
+    except (WebSocketDisconnect, asyncio.TimeoutError):
         ws_manager.disconnect(websocket)
     except Exception:
         ws_manager.disconnect(websocket)
