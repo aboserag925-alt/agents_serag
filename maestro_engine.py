@@ -6,7 +6,6 @@ import asyncio
 import random
 import logging
 import shutil
-import subprocess
 import re
 from typing import Dict, Any, Optional, List, Tuple, Callable
 from pathlib import Path
@@ -180,7 +179,7 @@ class TestAgent:
         try:
             proc = await asyncio.create_subprocess_exec(
                 sys.executable, "-m", "unittest", "discover",
-                "-s", str(tests_dir), "-p", "test_*.py", "-v",
+                "-s", "tests", "-t", ".", "-p", "test_*.py", "-v",
                 cwd=str(Path(__file__).resolve().parent),
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE
