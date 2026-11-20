@@ -55,6 +55,17 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+@app.middleware("http")
+async def protect_api_routes(request: Request, call_next):
+    """Require the configured bearer token for every HTTP API endpoint."""
+    if request.url.path.startswith("/api/"):
+        if not security_gate.verify_token(request.headers.get("authorization")):
+            return JSONResponse(
+                status_code=401,
+                content={"detail": "غير مصرح: يلزم رمز HUB_AUTH_TOKEN صالح"}
+            )
+    return await call_next(request)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
