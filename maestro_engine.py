@@ -233,7 +233,10 @@ class VerifierAgent:
         # 4. Tests passed
         product_ok = "product" in results_bundle
         security_ok = results_bundle.get("security", {}).get("approved", False)
-        dev_ok = results_bundle.get("developer", {}).get("status") == "EXECUTED"
+        developer_evidence = results_bundle.get("developer", {})
+        dev_ok = (developer_evidence.get("status") == "EXECUTED"
+                  and developer_evidence.get("returncode") == 0
+                  and bool(developer_evidence.get("output", "").strip()))
         test_evidence = results_bundle.get("test", {})
         test_ok = (test_evidence.get("status") == "TESTS_PASSED"
                    and isinstance(test_evidence.get("tests_run"), int)
