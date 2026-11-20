@@ -20,7 +20,7 @@ class VerifierEvidenceTests(unittest.TestCase):
         bundle = {
             "product": {"status": "ANALYSIS_COMPLETE"},
             "security": {"approved": True},
-            "developer": {"status": "EXECUTED", "returncode": 0},
+            "developer": {"status": "EXECUTED", "returncode": 0, "output": "completed"},
             "test": {"status": "TESTS_PASSED", "tests_run": 1, "returncode": 0},
         }
         verified, report = asyncio.run(VerifierAgent.verify({}, bundle))
