@@ -29,11 +29,13 @@ AGENTS_FILE = BASE_DIR / "agents.json"
 LOGS_DIR.mkdir(parents=True, exist_ok=True)
 
 # CORS Allowed Origins
-allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "*")
-if allowed_origins_env == "*":
-    origins = ["*"]
-else:
-    origins = [o.strip() for o in allowed_origins_env.split(",") if o.strip()]
+# Cross-origin access is opt-in. Never combine wildcard origins with credentials.
+allowed_origins_env = os.getenv("ALLOWED_ORIGINS", "")
+origins = [
+    origin.strip()
+    for origin in allowed_origins_env.split(",")
+    if origin.strip() and origin.strip() != "*"
+]
 
 # Lifespan for 24/7 Resilience & Startup Reconciliation
 @asynccontextmanager
@@ -82,8 +84,12 @@ class ConnectionManager:
         self.active_connections: List[WebSocket] = []
 
     async def connect(self, websocket: WebSocket):
+        # Accept first, but do not expose this socket to broadcasts before auth.
         await websocket.accept()
-        self.active_connections.append(websocket)
+
+    def register_authenticated(self, websocket: WebSocket):
+        if websocket not in self.active_connections:
+            self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
         if websocket in self.active_connections:
@@ -292,8 +298,10 @@ async def websocket_endpoint(websocket: WebSocket):
         auth_message = await asyncio.wait_for(websocket.receive_text(), timeout=10.0)
         if not auth_message.startswith("auth:") or not security_gate.verify_token(auth_message[5:]):
             await websocket.close(code=4401, reason="Authentication required")
-            ws_manager.disconnect(websocket)
             return
+
+        # Register only after successful authentication so broadcasts cannot leak.
+        ws_manager.register_authenticated(websocket)
 
         # Send initial sync payload only after successful authentication.
         await websocket.send_json({
