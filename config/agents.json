@@ -1,5 +1,6 @@
 {
   "agents": [
+    {"id": "serag_master", "name_ar": "المدير العام والمنسق", "capabilities": ["task_routing", "task_monitoring", "approval_coordination"]},
     {"id": "administrative", "name_ar": "الوكيل الإداري", "capabilities": ["student_records_review", "administrative_reporting", "document_drafting"]},
     {"id": "academic", "name_ar": "الوكيل الأكاديمي", "capabilities": ["course_outline", "learning_content_review", "assessment_design"]},
     {"id": "operations", "name_ar": "وكيل التشغيل", "capabilities": ["schedule_planning", "attendance_reporting", "support_triage"]},

@@ -1,4 +1,4 @@
-import json
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Callable, Any
 
@@ -9,6 +9,10 @@ from .registry import AgentRegistry
 
 
 Handler = Callable[[Task], Any]
+ALLOWED_ACTIONS = {
+    "internal_analysis", "external_write", "publish",
+    "financial_transaction", "moodle_write", "send_message", "delete_data",
+}
 
 
 class SeragOrchestrator:
@@ -34,8 +38,21 @@ class SeragOrchestrator:
             raise ValueError("Task title and description are required")
         if request.risk not in {"low", "medium", "high", "critical"}:
             raise ValueError("Invalid risk level")
+        if request.action not in ALLOWED_ACTIONS:
+            raise ValueError("Invalid or unrecognized action")
         if request.idempotency_key and request.idempotency_key in self._idempotency:
-            return self.tasks[self._idempotency[request.idempotency_key]]
+            existing = self.tasks[self._idempotency[request.idempotency_key]]
+            same_request = (
+                existing.title == request.title
+                and existing.description == request.description
+                and existing.capability == request.capability
+                and existing.risk == request.risk
+                and existing.action == request.action
+                and existing.requested_by == request.requested_by
+            )
+            if not same_request:
+                raise ValueError("Idempotency key was already used for a different request")
+            return existing
         agent = self.registry.for_capability(request.capability)
         task = Task.from_request(request, agent.id, TaskStatus.QUEUED)
         if self.approvals.required(request.risk, request.action):
@@ -52,7 +69,8 @@ class SeragOrchestrator:
         if task.status != TaskStatus.AWAITING_APPROVAL or not self.approvals.approve(approval_id, task_id):
             raise PermissionError("Approval is invalid, expired, or belongs to another task")
         task.status = TaskStatus.QUEUED
-        task.updated_at = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+        task.approval_id = None
+        task.updated_at = datetime.now(timezone.utc).isoformat()
         self.audit.append("task_approved", task.id)
         return task
 
@@ -61,6 +79,8 @@ class SeragOrchestrator:
         if task.status != TaskStatus.AWAITING_APPROVAL or not self.approvals.reject(approval_id, task_id):
             raise PermissionError("Approval is invalid, expired, or belongs to another task")
         task.status = TaskStatus.REJECTED
+        task.approval_id = None
+        task.updated_at = datetime.now(timezone.utc).isoformat()
         self.audit.append("task_rejected", task.id)
         return task
 
@@ -72,6 +92,7 @@ class SeragOrchestrator:
         if handler is None:
             raise RuntimeError(f"No execution handler registered for {task.capability}")
         task.status = TaskStatus.RUNNING
+        task.updated_at = datetime.now(timezone.utc).isoformat()
         self.audit.append("task_started", task.id, {"agent": task.assigned_agent})
         try:
             task.result = handler(task)
@@ -82,7 +103,6 @@ class SeragOrchestrator:
             task.status = TaskStatus.FAILED
             self.audit.append("task_failed", task.id, {"error_type": type(exc).__name__})
         finally:
-            from datetime import datetime, timezone
             task.updated_at = datetime.now(timezone.utc).isoformat()
         return task
 

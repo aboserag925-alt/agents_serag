@@ -24,7 +24,10 @@ def test_protected_task_waits_for_approval():
 def test_approved_task_runs_registered_handler():
     os = make_os()
     os.register_handler("report", lambda task: {"ok": True})
-    task = os.submit(TaskRequest("تقرير", "ملخص", "report"))
+    task = os.submit(TaskRequest("نشر", "مراجعة", "report", action="publish"))
+    approved = os.approve(task.id, task.approval_id)
+    assert approved.status == TaskStatus.QUEUED
+    assert approved.approval_id is None
     assert os.run(task.id).status == TaskStatus.COMPLETED
 
 
@@ -50,10 +53,23 @@ def test_idempotency_key_prevents_duplicate_tasks():
     assert len(os.tasks) == 1
 
 
+def test_idempotency_key_cannot_be_reused_for_different_task():
+    os = make_os()
+    os.submit(TaskRequest("تقرير", "ملخص", "report", idempotency_key="same-request"))
+    with pytest.raises(ValueError):
+        os.submit(TaskRequest("تقرير آخر", "ملخص مختلف", "report", idempotency_key="same-request"))
+
+
 def test_unknown_capability_is_rejected():
     os = make_os()
     with pytest.raises(ValueError):
         os.submit(TaskRequest("مهمة", "وصف", "not-registered"))
+
+
+def test_unknown_action_is_rejected():
+    os = make_os()
+    with pytest.raises(ValueError):
+        os.submit(TaskRequest("مهمة", "وصف", "report", action="unclassified_write"))
 
 
 def test_audit_chain_verifies():
