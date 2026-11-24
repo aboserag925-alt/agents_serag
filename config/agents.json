@@ -1,0 +1,10 @@
+{
+  "agents": [
+    {"id": "administrative", "name_ar": "الوكيل الإداري", "capabilities": ["student_records_review", "administrative_reporting", "document_drafting"]},
+    {"id": "academic", "name_ar": "الوكيل الأكاديمي", "capabilities": ["course_outline", "learning_content_review", "assessment_design"]},
+    {"id": "operations", "name_ar": "وكيل التشغيل", "capabilities": ["schedule_planning", "attendance_reporting", "support_triage"]},
+    {"id": "marketing_sales", "name_ar": "وكيل التسويق والمبيعات", "capabilities": ["campaign_analysis", "lead_qualification", "marketing_copy"]},
+    {"id": "finance", "name_ar": "الوكيل المالي", "capabilities": ["budget_analysis", "invoice_review", "financial_reporting"]},
+    {"id": "quality_analytics", "name_ar": "وكيل الجودة والتحليل", "capabilities": ["quality_audit", "kpi_analysis", "survey_analysis"]}
+  ]
+}
