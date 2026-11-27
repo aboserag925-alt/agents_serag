@@ -349,13 +349,16 @@ async def api_submit_task(req: TaskSubmitRequest, authorization: Optional[str] =
     if not desc:
         raise HTTPException(status_code=400, detail="يجب تحديد وصف للمهمة")
     
-    task = await maestro_engine.MaestroOrchestrator.submit_task(
-        description=desc,
-        category=req.category,
-        priority=req.priority,
-        input_data=req.input_data,
-        idempotency_key=req.idempotency_key
-    )
+    try:
+        task = await maestro_engine.MaestroOrchestrator.submit_task(
+            description=desc,
+            category=req.category,
+            priority=req.priority,
+            input_data=req.input_data,
+            idempotency_key=req.idempotency_key
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     return {"ok": True, "task": task}
 
 @app.get("/api/tasks")
@@ -680,11 +683,14 @@ async def api_send_prompt(agent_id: str, req: PromptRequest):
 
     elif agent_id == "hares-maestro":
         # Dispatch to the real Maestro Orchestrator pipeline!
-        task = await maestro_engine.MaestroOrchestrator.submit_task(
-            description=prompt,
-            category="governance",
-            priority=5
-        )
+        try:
+            task = await maestro_engine.MaestroOrchestrator.submit_task(
+                description=prompt,
+                category="governance",
+                priority=5
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
         elapsed = round(time.time() - start_time, 2)
         return {
             "ok": True,
