@@ -2,6 +2,7 @@ import os
 import re
 import hmac
 import time
+import threading
 from pathlib import Path
 from typing import Optional, Dict, Any, Tuple, List
 import task_store
@@ -103,17 +104,17 @@ def check_permission_and_gate(task_id: str, action_type: str, actor: str, detail
 
 # Simple Rate Limiter
 _rate_limit_records: Dict[str, List[float]] = {}
-_rate_lock = time.time()
+_rate_lock = threading.Lock()
 
 def is_rate_limited(client_ip: str, max_calls: int = 120, period_sec: float = 60.0) -> bool:
     now = time.time()
-    records = _rate_limit_records.setdefault(client_ip, [])
-    # purge old
-    _rate_limit_records[client_ip] = [t for t in records if now - t < period_sec]
-    if len(_rate_limit_records[client_ip]) >= max_calls:
-        return True
-    _rate_limit_records[client_ip].append(now)
-    return False
+    with _rate_lock:
+        records = _rate_limit_records.setdefault(client_ip, [])
+        _rate_limit_records[client_ip] = [t for t in records if now - t < period_sec]
+        if len(_rate_limit_records[client_ip]) >= max_calls:
+            return True
+        _rate_limit_records[client_ip].append(now)
+        return False
 
 def verify_token(token: Optional[str]) -> bool:
     """Validate a configured bearer token; reject missing configuration and all bypasses."""
