@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - feature/autonomous-hub-security-real-tests
+      - feat/agents-hub-hardening-2026-11-27
   pull_request:
     branches:
       - main
