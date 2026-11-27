@@ -115,3 +115,19 @@ class StartupRecoveryWiringTests(unittest.TestCase):
             and node.func.value.id == "asyncio"
             for node in calls
         ))
+
+
+class ApiRateLimitWiringTests(unittest.TestCase):
+    def test_http_api_middleware_applies_rate_limiter(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        middleware = next(
+            node for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "protect_api_routes"
+        )
+        self.assertTrue(any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "is_rate_limited"
+            for node in ast.walk(middleware)
+        ))
