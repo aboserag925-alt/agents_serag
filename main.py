@@ -45,7 +45,19 @@ async def lifespan(app: FastAPI):
     reconciliation = task_store.reconcile_orphan_tasks()
     print(f"[24/7 BOOT RECOVERY] Tasks Reconciled: {reconciliation}")
     maestro_engine.MaestroOrchestrator.register_agent_states()
-    task_store.log_audit("SERVER_STARTUP", "System", details={"reconciliation": reconciliation})
+
+    # Resume tasks returned to RECEIVE after an interrupted server process.
+    pending_tasks = task_store.list_tasks(status="RECEIVE", limit=1000)
+    for pending_task in pending_tasks:
+        asyncio.create_task(
+            maestro_engine.MaestroOrchestrator.run_task_pipeline(pending_task["task_id"])
+        )
+    print(f"[24/7 BOOT RECOVERY] Pending tasks scheduled: {len(pending_tasks)}")
+
+    task_store.log_audit("SERVER_STARTUP", "System", details={
+        "reconciliation": reconciliation,
+        "pending_tasks_scheduled": len(pending_tasks)
+    })
     yield
     # 2. Graceful Shutdown
     print("[SERVER SHUTDOWN] Cleaning up resources gracefully...")
