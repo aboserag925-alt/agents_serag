@@ -52,3 +52,33 @@ class SecurityWiringTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AgentProcessLaunchTests(unittest.TestCase):
+    def test_agent_commands_are_started_without_a_shell(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        endpoint = next(
+            node for node in tree.body
+            if isinstance(node, ast.FunctionDef) and node.name == "api_start_agent"
+        )
+        calls = [
+            node for node in ast.walk(endpoint)
+            if isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "Popen"
+        ]
+        self.assertEqual(len(calls), 1)
+        kwargs = {item.arg: item.value for item in calls[0].keywords}
+        self.assertIsInstance(kwargs.get("shell"), ast.Constant)
+        self.assertIs(kwargs["shell"].value, False)
+        self.assertIsInstance(calls[0].args[0], ast.Name)
+        self.assertEqual(calls[0].args[0].id, "argv")
+        self.assertTrue(any(
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "split"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "shlex"
+            for node in ast.walk(endpoint)
+        ))
