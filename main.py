@@ -6,6 +6,7 @@ import signal
 import socket
 import re
 import shutil
+import shlex
 import subprocess
 import asyncio
 from pathlib import Path
@@ -512,9 +513,13 @@ def api_start_agent(agent_id: str, authorization: Optional[str] = Header(None)):
         log_f.flush()
 
         try:
+            argv = shlex.split(cmd)
+            if not argv:
+                raise HTTPException(status_code=400, detail="أمر التشغيل غير صالح لهذا الوكيل")
+
             proc = subprocess.Popen(
-                cmd,
-                shell=True,
+                argv,
+                shell=False,
                 cwd=cwd,
                 stdout=log_f,
                 stderr=subprocess.STDOUT,
