@@ -140,12 +140,22 @@ class SecurityAgent:
         prompt = task["description"]
         check_payload = payload or {"prompt": prompt}
         
+        # Reject secret-bearing prompts before they can reach an executor.
+        cleaned_text = security_gate.mask_secrets(prompt)
+        input_data = task.get("input_data") or {}
+        cleaned_input = security_gate.mask_dict_secrets(input_data)
+        has_secret_leak = cleaned_text != prompt or cleaned_input != input_data
+        if has_secret_leak:
+            return False, {
+                "agent": cls.role,
+                "approved": False,
+                "status": "SECRET_REDACTION_REQUIRED",
+                "requires_redaction": True,
+                "reason": "تم إيقاف المهمة لأن المدخلات تحتوي على بيانات تشبه الأسرار. احذفها وأعد إرسال الطلب."
+            }
+
         # Check against sensitive action rules
         is_sensitive, risk_level, reason = security_gate.is_sensitive_action(action_type, check_payload)
-        
-        # Scan for secret leaks in prompt or input
-        cleaned_text = security_gate.mask_secrets(prompt)
-        has_secret_leak = cleaned_text != prompt
 
         if is_sensitive:
             return False, {
@@ -295,6 +305,11 @@ class MaestroOrchestrator:
         idempotency_key: Optional[str] = None
     ) -> Dict[str, Any]:
         """Entry point for new user or system tasks."""
+        clean_description = security_gate.mask_secrets(description)
+        clean_input_data = security_gate.mask_dict_secrets(input_data or {})
+        if clean_description != description or clean_input_data != (input_data or {}):
+            raise ValueError("تم رفض الطلب قبل حفظه لأنه يحتوي على بيانات تشبه الأسرار. احذف المفاتيح أو الرموز السرية وأعد الإرسال.")
+
         cls.register_agent_states()
         
         # 1. RECEIVE
@@ -333,6 +348,15 @@ class MaestroOrchestrator:
                 sec_approved, sec_report = await SecurityAgent.review(task)
                 
                 if not sec_approved:
+                    if sec_report.get("status") == "SECRET_REDACTION_REQUIRED":
+                        task_store.update_task(
+                            task_id,
+                            status="FAILED",
+                            error_message="تم رفض المهمة لاحتوائها على بيانات تشبه الأسرار؛ احذفها وأعد الإرسال."
+                        )
+                        broadcast_event("TASK_REJECTED_SECRET", {"task_id": task_id})
+                        return
+
                     # Gated by Sensitive Approval Mode!
                     allowed, approval_id = security_gate.check_permission_and_gate(
                         task_id=task_id,
