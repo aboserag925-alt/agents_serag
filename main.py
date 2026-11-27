@@ -72,8 +72,14 @@ app = FastAPI(
 
 @app.middleware("http")
 async def protect_api_routes(request: Request, call_next):
-    """Require the configured bearer token for every HTTP API endpoint."""
+    """Rate-limit and require the configured bearer token for every HTTP API endpoint."""
     if request.url.path.startswith("/api/"):
+        client_ip = request.client.host if request.client else "unknown"
+        if security_gate.is_rate_limited(client_ip):
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "تم تجاوز حد الطلبات؛ حاول مرة أخرى بعد قليل."}
+            )
         if not security_gate.verify_token(request.headers.get("authorization")):
             return JSONResponse(
                 status_code=401,
