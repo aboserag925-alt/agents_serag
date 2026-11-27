@@ -43,3 +43,18 @@ class VerifyTokenTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class RateLimiterConcurrencyTests(unittest.TestCase):
+    def test_rate_limit_enforces_cap_under_concurrent_requests(self):
+        from concurrent.futures import ThreadPoolExecutor
+        import uuid
+
+        client_ip = "test-" + uuid.uuid4().hex
+        with ThreadPoolExecutor(max_workers=24) as pool:
+            limited = list(pool.map(
+                lambda _: security_gate.is_rate_limited(client_ip, max_calls=5, period_sec=60.0),
+                range(100)
+            ))
+        self.assertEqual(sum(not item for item in limited), 5)
+        self.assertEqual(sum(limited), 95)
