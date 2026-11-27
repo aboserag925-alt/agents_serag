@@ -82,3 +82,36 @@ class AgentProcessLaunchTests(unittest.TestCase):
             and node.func.value.id == "shlex"
             for node in ast.walk(endpoint)
         ))
+
+
+class StartupRecoveryWiringTests(unittest.TestCase):
+    def test_startup_schedules_recovered_receive_tasks(self):
+        source = (ROOT / "main.py").read_text(encoding="utf-8")
+        tree = ast.parse(source)
+        lifespan = next(
+            node for node in tree.body
+            if isinstance(node, ast.AsyncFunctionDef) and node.name == "lifespan"
+        )
+        calls = [
+            node for node in ast.walk(lifespan)
+            if isinstance(node, ast.Call)
+        ]
+        list_tasks_calls = [
+            node for node in calls
+            if isinstance(node.func, ast.Attribute)
+            and node.func.attr == "list_tasks"
+        ]
+        self.assertTrue(list_tasks_calls)
+        self.assertTrue(any(
+            keyword.arg == "status"
+            and isinstance(keyword.value, ast.Constant)
+            and keyword.value.value == "RECEIVE"
+            for call in list_tasks_calls for keyword in call.keywords
+        ))
+        self.assertTrue(any(
+            isinstance(node.func, ast.Attribute)
+            and node.func.attr == "create_task"
+            and isinstance(node.func.value, ast.Name)
+            and node.func.value.id == "asyncio"
+            for node in calls
+        ))
